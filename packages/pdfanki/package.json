@@ -1,9 +1,16 @@
 {
   "name": "@shbernal/pdfanki",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "packageManager": "pnpm@10.28.1",
+  "description": "Core PDF/EPUB parsing and flashcard generation utilities for pdfanki",
+  "author": "shbernal <shbernal.01@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/shbernal/pdfanki",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shbernal/pdfanki.git"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -22,8 +29,13 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "LICENSE",
+    "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -b tsconfig.json",
     "lint": "eslint src",
