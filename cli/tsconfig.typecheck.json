@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    "paths": {
+      "@shbernal/pdfanki": ["../packages/pdfanki/src"],
+      "@shbernal/pdfanki/*": ["../packages/pdfanki/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "../packages/pdfanki/src/**/*.ts"],
+  "exclude": ["dist"]
+}

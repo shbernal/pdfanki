@@ -1,0 +1,47 @@
+{
+  "name": "@shbernal/pdfanki-cli",
+  "version": "0.1.0",
+  "description": "Convert PDF/EPUB files into Anki decks",
+  "keywords": [
+    "anki",
+    "pdf",
+    "epub",
+    "cli"
+  ],
+  "type": "module",
+  "packageManager": "pnpm@10.28.1",
+  "bin": {
+    "pdfanki": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "lint": "eslint src",
+    "format": "prettier --list-different . | xargs -r prettier --write"
+  },
+  "author": "shbernal <shbernal.01@gmail.com>",
+  "homepage": "https://github.com/shbernal/pdfanki",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shbernal/pdfanki.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@shbernal/mdanki": "^1.0.0",
+    "@shbernal/pdfanki": "workspace:*",
+    "yargs": "^18.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

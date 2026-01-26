@@ -1,0 +1,10 @@
+packages:
+  - cli
+  - packages/*
+
+ignoredBuiltDependencies:
+  - protobufjs
+
+onlyBuiltDependencies:
+  - esbuild
+  - zipfile
