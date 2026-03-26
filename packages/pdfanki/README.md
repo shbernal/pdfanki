@@ -5,7 +5,7 @@ Core utilities used by the pdfanki CLI for parsing PDF/EPUB files and generating
 ## Entrypoints
 
 - `@shbernal/pdfanki/server`: Node-facing helpers to parse files and call models.
-  - `convertFileFromPath({ inputPath, type?, indexPath?, startUnit?, endUnit?, epubFilters?, debug? })` → `{ data, text, fileType, sourcePath }`.
+  - `convertFileFromPath({ inputPath, type?, indexPath?, startChapter?, endChapter?, epubFilters?, debug? })` → `{ data, text, fileType, sourcePath }`.
   - `generateFlashcards({ provider, model, apiKey, prompt, content })` → markdown string.
   - `bookJsonToPlainText(book)` to flatten parsed sections for prompting.
 - `@shbernal/pdfanki/client`: Browser-safe helpers for JSON validation/editing.

@@ -5,6 +5,7 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs. This repository hosts
 
 Project layout
 - `cli/`: The published CLI (`@shbernal/pdfanki-cli`)
+- `fixtures/local/`: Gitignored local real-file fixtures for CLI smoke tests
 - `packages/`: Shared libraries used by the CLI
 - `scripts/`, `turbo.json`, `pnpm-workspace.yaml`: Repo-level tooling
 
@@ -36,7 +37,18 @@ How the CLI works
 - Inspect intermediate steps before sending to a model or exporting:
   - `pdfanki --from-file book.pdf --to-json`
   - `pdfanki --from-file book.pdf --to-md`
+- Print JSON or markdown output without writing files:
+  - `pdfanki --from-file book.pdf --to-json --dry-run`
+  - `pdfanki --from-file book.pdf --to-md --dry-run`
 - Defaults go to the current working directory with filenames derived from the input (`kebab-case`).
+
+Local fixtures
+- Put local real files under `fixtures/local/`.
+- Expected names:
+  - `fixtures/local/sample.pdf`
+  - `fixtures/local/sample.pdf.index.json`
+  - `fixtures/local/sample.epub`
+- These files are gitignored so you can keep private or large source documents out of the repo.
 
 PDF index helpers
 - `--index-create-template`: Generate an `index.json` scaffold.

@@ -47,24 +47,10 @@ export async function parsePdfWithPdfParse(fileBuffer, debug = false) {
 /**
  * Transform pdf2json result to our expected format
  */
-export function transformPdf2jsonResult(
-  parsedData,
-  originalFile,
-  startUnit,
-  endUnit,
-  index,
-) {
+export function transformPdf2jsonResult(parsedData, originalFile, index) {
   const { pdfData, rawTextContent } = parsedData
   const pages = pdfData.Pages || []
   const meta = pdfData.Meta || {}
-
-  console.log('Transforming PDF data:', {
-    totalPages: pages.length,
-    hasIndex: !!index,
-    indexChapters: index?.length || 0,
-    startUnit,
-    endUnit,
-  })
 
   let content = []
   let processingMethod = 'pdf2json'
@@ -73,21 +59,10 @@ export function transformPdf2jsonResult(
     // Process by chapters using the provided index
     content = processWithIndex(pages, index)
     processingMethod = 'pdf2json-with-index'
-    console.log('Processed with index:', content.length, 'chapters')
   } else {
-    // Process as single text document (new default behavior)
-    const startPage = startUnit ? parseInt(startUnit, 10) - 1 : 0
-    const endPage = endUnit ? parseInt(endUnit, 10) - 1 : pages.length - 1
-    const filteredPages = pages.slice(startPage, endPage + 1)
-
-    content = processAsSingleText(
-      filteredPages,
-      startPage,
-      endPage,
-      originalFile.name,
-    )
+    // Process as a single text document when no index is provided.
+    content = processAsSingleText(pages, 0, pages.length - 1, originalFile.name)
     processingMethod = 'pdf2json-single-text'
-    console.log('Processed as single text document')
   }
 
   // If no structured text found, fall back to raw text content
@@ -96,7 +71,6 @@ export function transformPdf2jsonResult(
     rawTextContent &&
     rawTextContent.trim().length > 0
   ) {
-    console.log('No structured content found, using raw text fallback')
     content = [
       {
         index: 1,
@@ -116,17 +90,10 @@ export function transformPdf2jsonResult(
     modificationDate: meta.ModDate || null,
     fileType: 'pdf',
     totalPages: pages.length,
-    extractedPages: index
-      ? getTotalPagesFromIndex(index)
-      : (endUnit ? parseInt(endUnit, 10) : pages.length) -
-        (startUnit ? parseInt(startUnit, 10) - 1 : 0),
+    extractedPages: index ? getTotalPagesFromIndex(index) : pages.length,
     extractedSections: content.length,
     filteredSections: 0,
-    extractedRange: index
-      ? `Chapters 1-${index.length}`
-      : startUnit && endUnit
-        ? `Pages ${startUnit}-${endUnit}`
-        : 'All Pages',
+    extractedRange: index ? `Chapters 1-${index.length}` : 'All Pages',
     processingMethod,
     pdfVersion: meta.PDFFormatVersion || null,
     hasAcroForm: meta.IsAcroFormPresent || false,
@@ -144,25 +111,11 @@ export function transformPdf2jsonResult(
 /**
  * Transform pdf-parse result to our expected format (similar to pdf2json path).
  */
-export function transformPdfParseResult(
-  parsedData,
-  originalFile,
-  startUnit,
-  endUnit,
-  index,
-) {
+export function transformPdfParseResult(parsedData, originalFile, index) {
   const pageTexts = parsedData.pageTexts || []
   const totalPages = parsedData.numpages || pageTexts.length
   const meta = parsedData.info || {}
   const rawTextContent = parsedData.rawTextContent
-
-  console.log('Transforming PDF data (pdf-parse):', {
-    totalPages,
-    hasIndex: !!index,
-    indexChapters: index?.length || 0,
-    startUnit,
-    endUnit,
-  })
 
   let content = []
   let processingMethod = 'pdf-parse'
@@ -170,23 +123,14 @@ export function transformPdfParseResult(
   if (index && Array.isArray(index)) {
     content = processWithIndexFromPageText(pageTexts, index)
     processingMethod = 'pdf-parse-with-index'
-    console.log('Processed with index:', content.length, 'chapters')
   } else {
-    const startPage = startUnit ? parseInt(startUnit, 10) - 1 : 0
-    const endPage =
-      endUnit && endUnit > 0 ? parseInt(endUnit, 10) - 1 : totalPages - 1
-
-    const boundedStart = Math.max(0, startPage)
-    const boundedEnd = Math.min(totalPages - 1, endPage)
-
     content = processAsSingleTextFromPages(
-      pageTexts.slice(boundedStart, boundedEnd + 1),
-      boundedStart,
-      boundedEnd,
+      pageTexts,
+      0,
+      totalPages - 1,
       originalFile.name,
     )
     processingMethod = 'pdf-parse-single-text'
-    console.log('Processed as single text document')
   }
 
   if (
@@ -194,7 +138,6 @@ export function transformPdfParseResult(
     rawTextContent &&
     rawTextContent.trim().length > 0
   ) {
-    console.log('No structured content found, using raw text fallback')
     content = [
       {
         index: 1,
@@ -221,17 +164,10 @@ export function transformPdfParseResult(
     modificationDate: meta.ModDate || null,
     fileType: 'pdf',
     totalPages: totalPages,
-    extractedPages: index
-      ? getTotalPagesFromIndex(index)
-      : (endUnit ? parseInt(endUnit, 10) : totalPages) -
-        (startUnit ? parseInt(startUnit, 10) - 1 : 0),
+    extractedPages: index ? getTotalPagesFromIndex(index) : totalPages,
     extractedSections: content.length,
     filteredSections: 0,
-    extractedRange: index
-      ? `Chapters 1-${index.length}`
-      : startUnit && endUnit
-        ? `Pages ${startUnit}-${endUnit}`
-        : 'All Pages',
+    extractedRange: index ? `Chapters 1-${index.length}` : 'All Pages',
     processingMethod,
     pdfVersion: parsedData.version || null,
     hasIndex: !!index,

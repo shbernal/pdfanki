@@ -209,3 +209,21 @@ export async function loadPrompt(rawName?: string): Promise<{
     throw error
   }
 }
+
+export async function listPrompts(): Promise<
+  Array<{
+    name: string
+    path: string
+  }>
+> {
+  const paths = await ensureConfig()
+  const entries = await fs.readdir(paths.promptsDir, { withFileTypes: true })
+
+  return entries
+    .filter(entry => entry.isFile() && /\.md$/i.test(entry.name))
+    .map(entry => ({
+      name: entry.name.replace(/\.md$/i, ''),
+      path: join(paths.promptsDir, entry.name),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}

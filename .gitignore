@@ -7,3 +7,10 @@
 **/scripts/
 
 AGENTS.md
+
+fixtures
+fixtures/local/**
+!fixtures/local/
+!fixtures/local/README.md
+
+docs/

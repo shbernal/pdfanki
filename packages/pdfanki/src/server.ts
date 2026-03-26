@@ -17,8 +17,8 @@ export type ConvertFileOptions = {
   inputPath: string
   type?: string
   indexPath?: string
-  startUnit?: number
-  endUnit?: number
+  startChapter?: number
+  endChapter?: number
   minChars?: number
   provider?: SupportedProvider
   model?: string
@@ -121,8 +121,8 @@ export async function convertFileFromPath(
     inputPath,
     type,
     indexPath,
-    startUnit,
-    endUnit,
+    startChapter,
+    endChapter,
     minChars,
     epubFilters,
     debug,
@@ -132,18 +132,39 @@ export async function convertFileFromPath(
     throw new Error('inputPath is required')
   }
 
+  if (
+    typeof startChapter !== 'undefined' &&
+    (!Number.isInteger(startChapter) || startChapter <= 0)
+  ) {
+    throw new Error('startChapter must be a positive integer')
+  }
+
+  if (
+    typeof endChapter !== 'undefined' &&
+    (!Number.isInteger(endChapter) || endChapter <= 0)
+  ) {
+    throw new Error('endChapter must be a positive integer')
+  }
+
   const fileType = inferFileType(inputPath, type)
   const fileBuffer = await fs.readFile(inputPath)
   const originalFile = { name: basename(inputPath) }
 
   if (fileType === 'pdf') {
+    if (
+      typeof startChapter !== 'undefined' ||
+      typeof endChapter !== 'undefined'
+    ) {
+      throw new Error(
+        'PDF extraction does not support chapter selection. Use --index for PDFs.',
+      )
+    }
+
     const parsedIndex = await loadIndexFile(indexPath)
     const pdfData = await parsePdfWithPdfParse(fileBuffer, Boolean(debug))
     const transformed = transformPdfParseResult(
       pdfData,
       originalFile,
-      startUnit,
-      endUnit,
       parsedIndex,
     )
     const cleaned = cleanTransformedResult(transformed)
@@ -166,8 +187,8 @@ export async function convertFileFromPath(
   const transformed = transformEpubResult(
     epubData,
     originalFile,
-    startUnit,
-    endUnit,
+    startChapter,
+    endChapter,
     appliedTitleFilters,
     minChars,
   )
@@ -197,3 +218,8 @@ export {
   type EpubTitleFilter,
 } from './epubFilters.js'
 export type { SupportedProvider } from './providers.js'
+export type {
+  BookJson,
+  ContentSection,
+  IndexEntry,
+} from './types/flashcards.js'

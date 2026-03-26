@@ -29,6 +29,8 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 
 - Create an Anki deck from a PDF/EPUB : `pdfanki --from-file file.pdf --to-anki --deck-title "Title"`
 - Use DeepSeek explicitly (with `DEEPSEEK_API_KEY` set): `pdfanki --from-file file.pdf --provider deepseek --model deepseek-chat --to-md`
+- List available prompts from the configured prompts directory: `pdfanki list-prompts`
+- Print extracted JSON or generated markdown to stdout without writing files: `pdfanki --from-file file.pdf --to-json --dry-run`
 
 - Inspect the file contents before passing it to an AI model : `pdfanki --from-file file.pdf --to-json`
   - Use cases :
@@ -44,6 +46,7 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 ### Usage notes
 
 - Default outputs go to the current working directory with filenames derived from the input (`kebab-case`).
+- `--dry-run` prints JSON or markdown output to stdout and skips writing JSON, markdown, `.apkg`, and failure artifact files.
 - Log and UX controls:
   - `--verbose`: detailed per-section logs and provider/model diagnostics.
   - `--quiet` / `-q`: warnings and errors only.
@@ -60,10 +63,11 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
   ```
 
 - Pages are 1-based and inclusive; `start` ≤ `end`. Each entry maps to one output section.
+- `--start-chapter <num>` / `--end-chapter <num>` restrict EPUB extraction to a 1-based inclusive chapter range.
 - Generate a blank index template: `pdfanki index-template 8 --from-file book.pdf` (writes `./book.index.json`; omit `--from-file` to default to `./index.json`).
 - `--min-char <num>` filters out extracted sections with fewer than `<num>` characters.
 
-- Index is only supported for PDFs. EPUB files generally often provide a well-structured index.
+- PDFs only support filtering through `--index`. EPUB chapter filtering uses `--start-chapter` / `--end-chapter`.
 
 ### JSON shape for `--from-json` / `--to-json`
 

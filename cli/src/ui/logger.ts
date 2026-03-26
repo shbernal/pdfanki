@@ -78,7 +78,7 @@ export function createLogger(options: LoggerOptions): Logger {
       write(stdout, 'info', '[ok]', message, 'green')
     },
     warn(message: string) {
-      write(stderr, 'warn', '[warn]', message, 'yellow')
+      write(stderr, 'warn', '[WARNING]', message, 'yellow')
     },
     error(message: string) {
       write(stderr, 'error', '[err]', message, 'red')

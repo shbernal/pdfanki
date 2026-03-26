@@ -201,30 +201,30 @@ export function parseEpubWithEpubLib(
 export function transformEpubResult(
   epubData,
   originalFile,
-  startUnit,
-  endUnit,
+  startChapter,
+  endChapter,
   titleFilters = DEFAULT_EPUB_TITLE_FILTERS,
   minChars?,
 ) {
   const { metadata, chapters, totalChapters } = epubData
 
   // Determine which chapters to extract
-  const startIdx = startUnit ? parseInt(startUnit, 10) - 1 : 0
-  const endIdx = endUnit ? parseInt(endUnit, 10) - 1 : totalChapters - 1
+  const startIdx = startChapter ? parseInt(startChapter, 10) - 1 : 0
+  const endIdx = endChapter ? parseInt(endChapter, 10) - 1 : totalChapters - 1
 
   // Validate chapter range
   if (startIdx < 0 || startIdx >= totalChapters) {
     throw new Error(
-      `Start section ${startUnit} is out of range (1-${totalChapters})`,
+      `Start chapter ${startChapter} is out of range (1-${totalChapters})`,
     )
   }
   if (endIdx < 0 || endIdx >= totalChapters) {
     throw new Error(
-      `End section ${endUnit} is out of range (1-${totalChapters})`,
+      `End chapter ${endChapter} is out of range (1-${totalChapters})`,
     )
   }
   if (startIdx > endIdx) {
-    throw new Error('Start section cannot be greater than end section')
+    throw new Error('Start chapter cannot be greater than end chapter')
   }
 
   const content = []

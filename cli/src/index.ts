@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { promises as fs } from 'fs'
 import { dirname, join, parse } from 'path'
+import type { BookJson, ContentSection } from '@shbernal/pdfanki/server'
 import {
   convertMarkdownToAnkiDeck,
   type ConvertMarkdownToAnkiDeckOptions,
@@ -17,6 +18,7 @@ import {
 import { validateJsonStructure } from '@shbernal/pdfanki/client'
 import {
   ensureConfig,
+  listPrompts,
   loadPrompt,
   loadSettings,
   resetConfig,
@@ -126,6 +128,138 @@ function resolveIndexTemplatePath(
 function formatDuration(durationMs: number): string {
   const seconds = (durationMs / 1000).toFixed(2)
   return `${seconds}s`
+}
+
+function writeStdoutPayload(payload: string) {
+  process.stdout.write(payload.endsWith('\n') ? payload : `${payload}\n`)
+}
+
+function formatCount(value: number): string {
+  return new Intl.NumberFormat('en-US').format(value)
+}
+
+function parsePageRange(
+  pageRange?: string,
+): { start: number; end: number } | null {
+  if (!pageRange) return null
+  const match = pageRange.match(/^(\d+)-(\d+)$/)
+  if (!match) return null
+  return {
+    start: Number(match[1]),
+    end: Number(match[2]),
+  }
+}
+
+function formatOverlapRange(start: number, end: number): string {
+  return start === end ? `page ${start}` : `pages ${start}-${end}`
+}
+
+function findPageOverlaps(sections: ContentSection[]): Array<{
+  leftTitle: string
+  leftRange: string
+  rightTitle: string
+  rightRange: string
+  overlapStart: number
+  overlapEnd: number
+}> {
+  const ranges = sections
+    .map(section => {
+      const parsed = parsePageRange(section.pageRange)
+      if (!parsed) return null
+      return {
+        title: section.title?.trim() || `Section ${section.index}`,
+        range: section.pageRange!,
+        start: parsed.start,
+        end: parsed.end,
+      }
+    })
+    .filter(Boolean) as Array<{
+    title: string
+    range: string
+    start: number
+    end: number
+  }>
+
+  const overlaps: Array<{
+    leftTitle: string
+    leftRange: string
+    rightTitle: string
+    rightRange: string
+    overlapStart: number
+    overlapEnd: number
+  }> = []
+
+  for (let i = 0; i < ranges.length; i++) {
+    for (let j = i + 1; j < ranges.length; j++) {
+      const left = ranges[i]
+      const right = ranges[j]
+      const overlapStart = Math.max(left.start, right.start)
+      const overlapEnd = Math.min(left.end, right.end)
+
+      if (overlapStart <= overlapEnd) {
+        overlaps.push({
+          leftTitle: left.title,
+          leftRange: left.range,
+          rightTitle: right.title,
+          rightRange: right.range,
+          overlapStart,
+          overlapEnd,
+        })
+      }
+    }
+  }
+
+  return overlaps
+}
+
+function buildPdfSectionSummary(section: ContentSection): string {
+  const title = section.title?.trim() || `Section ${section.index}`
+  const pageRange = section.pageRange ? ` | pages: ${section.pageRange}` : ''
+  const pageCount =
+    typeof section.pageCount === 'number'
+      ? ` (${formatCount(section.pageCount)} page${section.pageCount === 1 ? '' : 's'})`
+      : ''
+  const charCount = section.text?.length ?? 0
+  return `- ${title}${pageRange}${pageCount} | chars: ${formatCount(charCount)}`
+}
+
+function logPdfExtractionSummary(options: {
+  logger: CliUi['logger']
+  sourcePath: string
+  book: BookJson
+  indexProvided: boolean
+}) {
+  const { logger, sourcePath, book, indexProvided } = options
+  const fileName = parse(sourcePath).base
+  const totalPages = book.metadata?.totalPages
+  const sections = book.content
+
+  logger.info(`Processing PDF: ${fileName}:`)
+  if (typeof totalPages === 'number' && totalPages > 0) {
+    logger.info(`- total pages: ${formatCount(totalPages)}`)
+  }
+
+  logger.info('Index:')
+  if (!indexProvided) {
+    logger.info('- no index provided')
+  }
+
+  if (sections.length === 0) {
+    logger.info('- no sections extracted')
+    return
+  }
+
+  for (const section of sections) {
+    logger.info(buildPdfSectionSummary(section))
+  }
+
+  if (indexProvided) {
+    for (const overlap of findPageOverlaps(sections)) {
+      logger.warn(
+        `Page overlap between "${overlap.leftTitle}" (${overlap.leftRange}) and "${overlap.rightTitle}" (${overlap.rightRange}) on ${formatOverlapRange(overlap.overlapStart, overlap.overlapEnd)}.`,
+      )
+    }
+  }
 }
 
 const MAX_MARKDOWN_VALIDATION_ATTEMPTS = 3
@@ -392,6 +526,32 @@ const cli = yargs(rawArgs)
     },
   )
   .command(
+    'list-prompts',
+    'List prompt names available in the pdfanki prompts directory.',
+    y => withUiOptions(y),
+    async args => {
+      let ui: CliUi | null = null
+      try {
+        ui = buildCliUi(args)
+        const prompts = await runWithSpinner(
+          ui.spinner,
+          'Loading prompts...',
+          async () => listPrompts(),
+        )
+
+        for (const prompt of prompts) {
+          process.stdout.write(`${prompt.name}\n`)
+        }
+      } catch (error) {
+        ui?.spinner.stop()
+        ;(ui?.logger ?? createLogger({ level: 'info', useColor: false })).error(
+          `Failed to list prompts: ${(error as Error).message}`,
+        )
+        process.exitCode = 1
+      }
+    },
+  )
+  .command(
     'index-template <count> [out]',
     'Generate a blank index with <count> sections and exit.',
     y =>
@@ -514,6 +674,16 @@ const cli = yargs(rawArgs)
             describe:
               'Path to a JSON index for PDF chapter separation (ignored for EPUB).',
           })
+          .option('start-chapter', {
+            type: 'number',
+            describe:
+              'First EPUB chapter to extract (1-based, inclusive). Not supported for PDFs.',
+          })
+          .option('end-chapter', {
+            type: 'number',
+            describe:
+              'Last EPUB chapter to extract (1-based, inclusive). Not supported for PDFs.',
+          })
           .option('min-char', {
             type: 'number',
             describe:
@@ -545,6 +715,12 @@ const cli = yargs(rawArgs)
             type: 'boolean',
             default: false,
             describe: 'Enable verbose PDF parser warnings (pdf.js verbosity).',
+          })
+          .option('dry-run', {
+            type: 'boolean',
+            default: false,
+            describe:
+              'Print JSON or markdown output without writing files. For Anki export, prints markdown and skips package creation.',
           }),
       ),
     async args => {
@@ -565,6 +741,7 @@ const cli = yargs(rawArgs)
         const fromJsonPath = args.fromJson as string | undefined
         const fromMarkdownPath = args.fromMd as string | undefined
         const fromFilePath = args.fromFile as string | undefined
+        const dryRun = toBool(args.dryRun, false)
 
         const toJsonRaw = args.toJson
         const toJsonVerboseRaw = args.toJsonVerbose
@@ -605,6 +782,26 @@ const cli = yargs(rawArgs)
           throw new Error('--min-char must be a non-negative integer.')
         }
         const minChars = typeof minCharArg === 'number' ? minCharArg : undefined
+        const startChapterArg = args.startChapter as number | undefined
+        const endChapterArg = args.endChapter as number | undefined
+
+        if (
+          typeof startChapterArg !== 'undefined' &&
+          (!Number.isFinite(startChapterArg) ||
+            startChapterArg <= 0 ||
+            !Number.isInteger(startChapterArg))
+        ) {
+          throw new Error('--start-chapter must be a positive integer.')
+        }
+
+        if (
+          typeof endChapterArg !== 'undefined' &&
+          (!Number.isFinite(endChapterArg) ||
+            endChapterArg <= 0 ||
+            !Number.isInteger(endChapterArg))
+        ) {
+          throw new Error('--end-chapter must be a positive integer.')
+        }
 
         const deckTitleArg = (args.deckTitle as string | undefined)?.trim()
         const defaultBaseName = (() => {
@@ -661,6 +858,14 @@ const cli = yargs(rawArgs)
           const finalOutputPath =
             ankiOutputPath ??
             resolveOutputPath(undefined, outputBaseName, '.apkg')
+
+          if (dryRun) {
+            logger.info('- dry run: Anki package creation skipped')
+            logger.info(`- would read markdown from ${fromMarkdownPath}`)
+            logger.info(`- would build Anki package at ${finalOutputPath}`)
+            logger.info(`Deck title: ${deckTitle}`)
+            return
+          }
 
           await runWithSpinner(spinner, 'Building Anki deck...', async () => {
             await fs.mkdir(dirname(finalOutputPath), { recursive: true })
@@ -753,12 +958,23 @@ const cli = yargs(rawArgs)
             inputPath: fromFilePath,
             type: args.type as string | undefined,
             indexPath: args.index as string | undefined,
+            startChapter: startChapterArg,
+            endChapter: endChapterArg,
             minChars,
             epubFilters: extractVerbose ? { titles: [] } : settings.epubFilters,
             debug: toBool(args.debug, false),
           }
 
           result = await convertFileFromPath(options)
+        }
+
+        if (checkpoint && fromFilePath && result.fileType === 'pdf') {
+          logPdfExtractionSummary({
+            logger,
+            sourcePath: fromFilePath,
+            book: result.data,
+            indexProvided: Boolean(args.index),
+          })
         }
 
         const basicExtractPayload = {
@@ -785,6 +1001,16 @@ const cli = yargs(rawArgs)
             (toJsonVerboseRaw ?? toJsonRaw) as string | undefined | boolean,
           )
 
+          if (dryRun) {
+            logger.info('- dry run: extracted JSON not written to disk')
+            logger.info(`- would write JSON to ${toJsonPath}`)
+            if (usedDefaultCheckpointOutput) {
+              logger.info(`- output path defaulted to cwd: ${process.cwd()}`)
+            }
+            writeStdoutPayload(checkpointPayload)
+            return
+          }
+
           await runWithSpinner(
             spinner,
             'Writing extracted JSON...',
@@ -794,10 +1020,10 @@ const cli = yargs(rawArgs)
             },
           )
 
-          const checkpointSavedMessage = usedDefaultCheckpointOutput
-            ? `Extracted content saved -> ${toJsonPath} | Output path defaulted to cwd: ${process.cwd()}`
-            : `Extracted content saved -> ${toJsonPath}`
-          logger.success(checkpointSavedMessage)
+          logger.success(`Saved extracted JSON to ${toJsonPath}`)
+          if (usedDefaultCheckpointOutput) {
+            logger.info(`- output path defaulted to cwd: ${process.cwd()}`)
+          }
           return
         }
 
@@ -837,9 +1063,11 @@ const cli = yargs(rawArgs)
           toAnkiRaw as string | undefined | boolean,
         )
 
-        await fs.mkdir(dirname(markdownPath), { recursive: true })
-        if (ankiOutputPath && !markdownOnly) {
-          await fs.mkdir(dirname(ankiOutputPath), { recursive: true })
+        if (!dryRun) {
+          await fs.mkdir(dirname(markdownPath), { recursive: true })
+          if (ankiOutputPath && !markdownOnly) {
+            await fs.mkdir(dirname(ankiOutputPath), { recursive: true })
+          }
         }
 
         const sections = result.data?.content ?? []
@@ -973,35 +1201,41 @@ const cli = yargs(rawArgs)
               `${sectionLabel} failed | flashcards: 0 | time: ${duration}`,
             )
 
-            const markdownDir = dirname(markdownPath)
-            const partialPath = join(
-              markdownDir,
-              `${outputBaseName}-partial.md`,
-            )
-            const failedSectionPath = join(
-              markdownDir,
-              `${outputBaseName}-failed-section-${position + 1}.md`,
-            )
+            if (dryRun) {
+              logger.warn(
+                'Dry run enabled; partial markdown and failed section artifacts were not written.',
+              )
+            } else {
+              const markdownDir = dirname(markdownPath)
+              const partialPath = join(
+                markdownDir,
+                `${outputBaseName}-partial.md`,
+              )
+              const failedSectionPath = join(
+                markdownDir,
+                `${outputBaseName}-failed-section-${position + 1}.md`,
+              )
 
-            const partialBody =
-              aggregatedCards.length > 0
-                ? renderFlashcards(aggregatedCards)
-                : ''
-            const partialPayload = buildDeckMarkdown(deckTitle, partialBody)
-            await fs.mkdir(dirname(partialPath), { recursive: true })
-            await fs.writeFile(partialPath, partialPayload, 'utf8')
+              const partialBody =
+                aggregatedCards.length > 0
+                  ? renderFlashcards(aggregatedCards)
+                  : ''
+              const partialPayload = buildDeckMarkdown(deckTitle, partialBody)
+              await fs.mkdir(dirname(partialPath), { recursive: true })
+              await fs.writeFile(partialPath, partialPayload, 'utf8')
 
-            const failedPayload =
-              rawResponse && rawResponse.trim().length > 0
-                ? rawResponse
-                : 'No model response captured for this section.'
-            await fs.mkdir(dirname(failedSectionPath), { recursive: true })
-            await fs.writeFile(failedSectionPath, failedPayload, 'utf8')
+              const failedPayload =
+                rawResponse && rawResponse.trim().length > 0
+                  ? rawResponse
+                  : 'No model response captured for this section.'
+              await fs.mkdir(dirname(failedSectionPath), { recursive: true })
+              await fs.writeFile(failedSectionPath, failedPayload, 'utf8')
 
-            logger.warn(`Partial markdown saved to ${partialPath}`)
-            logger.warn(
-              `Failed section output saved to ${failedSectionPath} (${sectionLabel})`,
-            )
+              logger.warn(`Partial markdown saved to ${partialPath}`)
+              logger.warn(
+                `Failed section output saved to ${failedSectionPath} (${sectionLabel})`,
+              )
+            }
 
             throw new Error(
               `Section ${position + 1} failed: ${(error as Error).message}`,
@@ -1026,9 +1260,27 @@ const cli = yargs(rawArgs)
         )
 
         const flashcards = renderFlashcards(aggregatedCards)
+        const markdownPayload = buildDeckMarkdown(deckTitle, flashcards)
+
+        if (dryRun) {
+          logger.info('- dry run: markdown deck not written to disk')
+          logger.info(`- would write markdown to ${markdownPath}`)
+          if (usedDefaultMarkdownPath) {
+            logger.info('Output path defaulted to current working directory.')
+          }
+          if (!markdownOnly && ankiOutputPath) {
+            logger.info('- dry run: Anki package creation skipped')
+            logger.info(`- would build Anki package at ${ankiOutputPath}`)
+            if (usedDefaultAnkiPath) {
+              logger.info('Output path defaulted to current working directory.')
+            }
+          }
+          writeStdoutPayload(markdownPayload)
+          logger.info(`Using prompt "${prompt.name}" from ${prompt.path}`)
+          return
+        }
 
         await runWithSpinner(spinner, 'Writing markdown deck...', async () => {
-          const markdownPayload = buildDeckMarkdown(deckTitle, flashcards)
           await fs.writeFile(markdownPath, markdownPayload, 'utf8')
         })
 
