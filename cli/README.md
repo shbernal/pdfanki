@@ -9,7 +9,7 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 ### Requirements
 
 - Node >=20
-- Provider API keys via environment variables: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `DEEPSEEK_API_KEY`
+- Provider API keys via environment variables: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`
 
 ## Config (XDG)
 
@@ -29,6 +29,7 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 
 - Create an Anki deck from a PDF/EPUB : `pdfanki --from-file file.pdf --to-anki --deck-title "Title"`
 - Use DeepSeek explicitly (with `DEEPSEEK_API_KEY` set): `pdfanki --from-file file.pdf --provider deepseek --model deepseek-chat --to-md`
+- Use OpenRouter explicitly (with `OPENROUTER_API_KEY` set): `pdfanki --from-file file.pdf --provider openrouter --model z-ai/glm-5 --to-md`
 - List available prompts from the configured prompts directory: `pdfanki list-prompts`
 - Print the current `settings.json` config to stdout: `pdfanki config`
 - Simulate extraction or markdown generation without writing files: `pdfanki --from-file file.pdf --to-json --dry-run`

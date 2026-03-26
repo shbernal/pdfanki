@@ -11,7 +11,7 @@ Project layout
 
 Requirements
 - Node.js >= 20
-- Provider API key exported in your shell: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `DEEPSEEK_API_KEY`
+- Provider API key exported in your shell: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`
 
 Install (CLI)
 ```bash
@@ -34,6 +34,8 @@ How the CLI works
   - `pdfanki --from-file book.pdf --to-anki --deck-title "Book Deck"`
 - Example: generate markdown with DeepSeek
   - `pdfanki --from-file book.pdf --provider deepseek --model deepseek-chat --to-md`
+- Example: generate markdown with OpenRouter
+  - `pdfanki --from-file book.pdf --provider openrouter --model z-ai/glm-5 --to-md`
 - Example: print the current config
   - `pdfanki config`
 - Inspect intermediate steps before sending to a model or exporting:

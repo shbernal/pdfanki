@@ -1,6 +1,11 @@
 import type { BookJson } from './types/flashcards.js'
 
-export type SupportedProvider = 'gemini' | 'anthropic' | 'openai' | 'deepseek'
+export type SupportedProvider =
+  | 'gemini'
+  | 'anthropic'
+  | 'openai'
+  | 'deepseek'
+  | 'openrouter'
 
 export type GenerateFlashcardsOptions = {
   provider: SupportedProvider
@@ -12,6 +17,7 @@ export type GenerateFlashcardsOptions = {
 
 const GEMINI_TIMEOUT_MS = 180_000
 const DEEPSEEK_BASE_URL = 'https://api.deepseek.com/v1'
+const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 
 export function bookJsonToPlainText(book: BookJson): string {
   const parts: string[] = []
@@ -43,6 +49,8 @@ export async function generateFlashcards(
       return callOpenAI(options)
     case 'deepseek':
       return callDeepSeek(options)
+    case 'openrouter':
+      return callOpenRouter(options)
     default:
       throw new Error(`Unsupported provider "${provider}".`)
   }
@@ -127,20 +135,40 @@ async function callDeepSeek(
   })
 }
 
+async function callOpenRouter(
+  options: GenerateFlashcardsOptions,
+): Promise<string> {
+  return callOpenAICompatible({
+    ...options,
+    providerName: 'OpenRouter',
+    baseURL: process.env.OPENROUTER_BASE_URL ?? OPENROUTER_BASE_URL,
+    defaultHeaders: {
+      ...(process.env.OPENROUTER_HTTP_REFERER
+        ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
+        : {}),
+      ...(process.env.OPENROUTER_TITLE
+        ? { 'X-OpenRouter-Title': process.env.OPENROUTER_TITLE }
+        : {}),
+    },
+  })
+}
+
 type OpenAICompatibleOptions = GenerateFlashcardsOptions & {
   providerName: string
   baseURL?: string
+  defaultHeaders?: Record<string, string>
 }
 
 async function callOpenAICompatible(
   options: OpenAICompatibleOptions,
 ): Promise<string> {
   const { prompt, content, apiKey, model } = options
-  const { providerName, baseURL } = options
+  const { providerName, baseURL, defaultHeaders } = options
   const OpenAI = (await import('openai')).default
   const client = new OpenAI({
     apiKey,
     ...(baseURL ? { baseURL } : {}),
+    ...(defaultHeaders ? { defaultHeaders } : {}),
   })
   const response = await client.chat.completions.create({
     model,
@@ -151,12 +179,46 @@ async function callOpenAICompatible(
     temperature: 0.3,
   })
 
-  const text = response.choices?.[0]?.message?.content
+  const text = extractOpenAICompatibleText(response)
   if (!text) {
     throw new Error(`${providerName} returned no text content.`)
   }
 
   return text.trim()
+}
+
+type OpenAICompatibleResponse = {
+  choices?: Array<{
+    message?: {
+      content?:
+        | string
+        | Array<{
+            type?: string
+            text?: string
+          }>
+    }
+  }>
+}
+
+function extractOpenAICompatibleText(
+  payload: OpenAICompatibleResponse,
+): string | null {
+  const content = payload.choices?.[0]?.message?.content
+  if (typeof content === 'string' && content.trim().length > 0) {
+    return content.trim()
+  }
+
+  if (!Array.isArray(content)) {
+    return null
+  }
+
+  const text = content
+    .filter(item => item?.type === 'text' && typeof item.text === 'string')
+    .map(item => item.text?.trim() ?? '')
+    .filter(Boolean)
+    .join('\n')
+
+  return text.length > 0 ? text : null
 }
 
 function isTimeoutError(error: unknown): boolean {

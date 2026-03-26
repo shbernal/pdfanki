@@ -13,7 +13,6 @@ import {
   generateFlashcards as generateFlashcardsFromServer,
   bookJsonToPlainText,
   type ConvertFileOptions,
-  type SupportedProvider as ServerSupportedProvider,
 } from '@shbernal/pdfanki/server'
 import { validateJsonStructure } from '@shbernal/pdfanki/client'
 import {
@@ -438,8 +437,6 @@ async function runWithProgressHeartbeat<T>(options: {
   }
 }
 
-const DEEPSEEK_BASE_URL = 'https://api.deepseek.com/v1'
-
 type GenerateFlashcardsRequest = {
   provider: SupportedProvider
   model: string
@@ -448,95 +445,10 @@ type GenerateFlashcardsRequest = {
   content: string
 }
 
-type DeepSeekChatCompletion = {
-  choices?: Array<{
-    message?: {
-      content?:
-        | string
-        | Array<{
-            type?: string
-            text?: string
-          }>
-    }
-  }>
-}
-
-function normalizeBaseUrl(value: string): string {
-  return value.replace(/\/+$/, '')
-}
-
-function extractDeepSeekText(payload: DeepSeekChatCompletion): string | null {
-  const content = payload.choices?.[0]?.message?.content
-  if (typeof content === 'string' && content.trim().length > 0) {
-    return content.trim()
-  }
-
-  if (!Array.isArray(content)) {
-    return null
-  }
-
-  const text = content
-    .filter(item => item?.type === 'text' && typeof item.text === 'string')
-    .map(item => item.text?.trim() ?? '')
-    .filter(Boolean)
-    .join('\n')
-
-  return text.length > 0 ? text : null
-}
-
-async function callDeepSeek(
-  options: GenerateFlashcardsRequest,
-): Promise<string> {
-  const { prompt, content, apiKey, model } = options
-  const baseUrl = normalizeBaseUrl(
-    process.env.DEEPSEEK_BASE_URL ?? DEEPSEEK_BASE_URL,
-  )
-  const endpoint = `${baseUrl}/chat/completions`
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: prompt },
-        { role: 'user', content },
-      ],
-      temperature: 0.3,
-    }),
-  })
-
-  if (!response.ok) {
-    const details = (await response.text()).trim()
-    const detailSuffix = details ? ` ${details.slice(0, 500)}` : ''
-    throw new Error(
-      `DeepSeek request failed (${response.status} ${response.statusText}).${detailSuffix}`,
-    )
-  }
-
-  const payload = (await response.json()) as DeepSeekChatCompletion
-  const text = extractDeepSeekText(payload)
-  if (!text) {
-    throw new Error('DeepSeek returned no text content.')
-  }
-
-  return text
-}
-
 async function generateFlashcards(
   options: GenerateFlashcardsRequest,
 ): Promise<string> {
-  if (options.provider === 'deepseek') {
-    return callDeepSeek(options)
-  }
-
-  return generateFlashcardsFromServer({
-    ...options,
-    provider: options.provider as ServerSupportedProvider,
-  })
+  return generateFlashcardsFromServer(options)
 }
 
 async function handleListLocalPrompts(args: UiBuildArgs): Promise<void> {
@@ -862,7 +774,13 @@ const cli = yargs(rawArgs)
           })
           .option('provider', {
             type: 'string',
-            choices: ['gemini', 'anthropic', 'openai', 'deepseek'],
+            choices: [
+              'gemini',
+              'anthropic',
+              'openai',
+              'deepseek',
+              'openrouter',
+            ],
             describe:
               'AI provider (expects API key in PROVIDER_API_KEY env var). Defaults to settings.json.',
           })
@@ -1078,6 +996,8 @@ const cli = yargs(rawArgs)
           anthropic: /^claude/i,
           openai: /^gpt/i,
           deepseek: /^deepseek/i,
+          openrouter:
+            /^(?:openrouter\/)?[a-z0-9._-]+\/[a-z0-9._-]+(?:\/[a-z0-9._-]+)?$/i,
         }
 
         const hint = providerModelHints[provider]

@@ -7,7 +7,7 @@ import {
 } from '@shbernal/pdfanki/server'
 import type { SupportedProvider as ServerSupportedProvider } from '@shbernal/pdfanki/server'
 
-export type SupportedProvider = ServerSupportedProvider | 'deepseek'
+export type SupportedProvider = ServerSupportedProvider
 
 const CONFIG_DIRNAME = 'pdfanki'
 const DEFAULT_PROMPT_NAME = 'default'
@@ -65,6 +65,9 @@ export const DEFAULT_SETTINGS: Settings = {
     },
     deepseek: {
       defaultModel: 'deepseek-chat',
+    },
+    openrouter: {
+      defaultModel: 'z-ai/glm-5',
     },
   },
   outputPath: '.',
