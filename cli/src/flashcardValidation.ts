@@ -102,9 +102,14 @@ export function parseFlashcardMarkdown(markdown: string): Flashcard[] {
     const line = rawLine.trimEnd()
     const trimmed = line.trim()
 
-    // Blank line closes the current card (if any) and is otherwise ignored.
+    // Blank lines before the first bullet are allowed; after bullets start,
+    // a blank line closes the current card.
     if (trimmed === '') {
-      if (current) flushCurrent(lineNumber)
+      if (current?.bullets.length) {
+        flushCurrent(lineNumber)
+      } else if (current) {
+        current.endLine = lineNumber
+      }
       return
     }
 

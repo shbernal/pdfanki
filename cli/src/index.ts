@@ -18,12 +18,16 @@ import {
 import { validateJsonStructure } from '@shbernal/pdfanki/client'
 import {
   ensureConfig,
-  listPrompts,
   loadPrompt,
   loadSettings,
   resetConfig,
   type SupportedProvider,
 } from './config.js'
+import {
+  installRemotePrompt,
+  listLocalPrompts,
+  listRemotePrompts,
+} from './prompts.js'
 import { readProviderApiKey } from './env.js'
 import {
   parseFlashcardMarkdown,
@@ -130,8 +134,46 @@ function formatDuration(durationMs: number): string {
   return `${seconds}s`
 }
 
-function writeStdoutPayload(payload: string) {
-  process.stdout.write(payload.endsWith('\n') ? payload : `${payload}\n`)
+const JSON_COLOR_ANSI = {
+  cyan: '\u001b[36m',
+  green: '\u001b[32m',
+  yellow: '\u001b[33m',
+  gray: '\u001b[90m',
+  reset: '\u001b[0m',
+} as const
+
+function colorizeJson(payload: string, enabled: boolean): string {
+  if (!enabled) return payload
+
+  return payload.replace(
+    /("(?:\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(?::)?|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?|\btrue\b|\bfalse\b|\bnull\b)/g,
+    token => {
+      let color: keyof typeof JSON_COLOR_ANSI | null = null
+
+      if (token.startsWith('"') && token.endsWith(':')) {
+        color = 'cyan'
+      } else if (token.startsWith('"')) {
+        color = 'green'
+      } else if (token === 'true' || token === 'false') {
+        color = 'yellow'
+      } else if (token === 'null') {
+        color = 'gray'
+      } else {
+        color = 'yellow'
+      }
+
+      return `${JSON_COLOR_ANSI[color]}${token}${JSON_COLOR_ANSI.reset}`
+    },
+  )
+}
+
+function formatJsonOutput(value: unknown, useColor: boolean): string {
+  const payload = JSON.stringify(value, null, 2)
+  if (typeof payload !== 'string') {
+    throw new Error('Unable to serialize JSON output.')
+  }
+
+  return `${colorizeJson(payload, useColor)}\n`
 }
 
 function formatCount(value: number): string {
@@ -285,6 +327,7 @@ type CliUi = {
   logger: ReturnType<typeof createLogger>
   spinner: Spinner
   progress: ProgressBar
+  useColor: boolean
   animationsEnabled: boolean
   progressEnabled: boolean
 }
@@ -310,6 +353,7 @@ function buildCliUi(args: UiBuildArgs): CliUi {
     logger: createLogger({ level, useColor }),
     spinner: createSpinner({ enabled: animationsEnabled }),
     progress: createProgressBar({ enabled: progressEnabled, useColor }),
+    useColor,
     animationsEnabled,
     progressEnabled,
   }
@@ -495,6 +539,108 @@ async function generateFlashcards(
   })
 }
 
+async function handleListLocalPrompts(args: UiBuildArgs): Promise<void> {
+  let ui: CliUi | null = null
+  try {
+    ui = buildCliUi(args)
+    const prompts = await runWithSpinner(
+      ui.spinner,
+      'Loading prompts...',
+      async () => listLocalPrompts(),
+    )
+
+    for (const prompt of prompts) {
+      process.stdout.write(`${prompt.name}\n`)
+    }
+  } catch (error) {
+    ui?.spinner.stop()
+    ;(ui?.logger ?? createLogger({ level: 'info', useColor: false })).error(
+      `Failed to list prompts: ${(error as Error).message}`,
+    )
+    process.exitCode = 1
+  }
+}
+
+async function handleListRemotePrompts(args: UiBuildArgs): Promise<void> {
+  let ui: CliUi | null = null
+  try {
+    ui = buildCliUi(args)
+    const prompts = await runWithSpinner(
+      ui.spinner,
+      'Loading remote prompts...',
+      async () => listRemotePrompts(),
+    )
+
+    for (const prompt of prompts) {
+      process.stdout.write(`${prompt.name}\n`)
+    }
+  } catch (error) {
+    ui?.spinner.stop()
+    ;(ui?.logger ?? createLogger({ level: 'info', useColor: false })).error(
+      `Failed to list remote prompts: ${(error as Error).message}`,
+    )
+    process.exitCode = 1
+  }
+}
+
+async function handleGetPrompt(
+  args: UiBuildArgs & {
+    name?: unknown
+    force?: unknown
+  },
+): Promise<void> {
+  let ui: CliUi | null = null
+  try {
+    ui = buildCliUi(args)
+    const name = String(args.name ?? '').trim()
+    if (name.length === 0) {
+      throw new Error('Provide a prompt name to install.')
+    }
+
+    const result = await runWithSpinner(
+      ui.spinner,
+      `Installing prompt "${name}"...`,
+      async () =>
+        installRemotePrompt(name, {
+          force: toBool(args.force, false),
+        }),
+    )
+
+    const verb = result.overwritten ? 'Updated' : 'Installed'
+    ui.logger.success(`${verb} prompt "${result.name}" at ${result.path}`)
+  } catch (error) {
+    ui?.spinner.stop()
+    ;(ui?.logger ?? createLogger({ level: 'info', useColor: false })).error(
+      `Failed to install prompt: ${(error as Error).message}`,
+    )
+    process.exitCode = 1
+  }
+}
+
+async function handlePrintConfig(args: UiBuildArgs): Promise<void> {
+  let ui: CliUi | null = null
+  try {
+    ui = buildCliUi(args)
+    const settings = await runWithSpinner(
+      ui.spinner,
+      'Loading configuration...',
+      async () => {
+        const paths = await ensureConfig()
+        const raw = await fs.readFile(paths.settings, 'utf8')
+        return JSON.parse(raw)
+      },
+    )
+
+    process.stdout.write(formatJsonOutput(settings, ui.useColor))
+  } catch (error) {
+    ui?.spinner.stop()
+    ;(ui?.logger ?? createLogger({ level: 'info', useColor: false })).error(
+      `Failed to print config: ${(error as Error).message}`,
+    )
+    process.exitCode = 1
+  }
+}
+
 const rawArgs = hideBin(process.argv)
 
 const cli = yargs(rawArgs)
@@ -526,30 +672,55 @@ const cli = yargs(rawArgs)
     },
   )
   .command(
-    'list-prompts',
-    'List prompt names available in the pdfanki prompts directory.',
+    'config',
+    'Print the current settings.json configuration to stdout.',
     y => withUiOptions(y),
-    async args => {
-      let ui: CliUi | null = null
-      try {
-        ui = buildCliUi(args)
-        const prompts = await runWithSpinner(
-          ui.spinner,
-          'Loading prompts...',
-          async () => listPrompts(),
+    async args => handlePrintConfig(args),
+  )
+  .command(
+    'prompts <subcommand>',
+    'List and install local or remote prompts.',
+    y =>
+      y
+        .command(
+          'list',
+          'List prompt names available in the local pdfanki prompts directory.',
+          commandY => withUiOptions(commandY),
+          async args => handleListLocalPrompts(args),
         )
-
-        for (const prompt of prompts) {
-          process.stdout.write(`${prompt.name}\n`)
-        }
-      } catch (error) {
-        ui?.spinner.stop()
-        ;(ui?.logger ?? createLogger({ level: 'info', useColor: false })).error(
-          `Failed to list prompts: ${(error as Error).message}`,
+        .command(
+          'list-remote',
+          'List prompt names available in the GitHub prompt directory.',
+          commandY => withUiOptions(commandY),
+          async args => handleListRemotePrompts(args),
         )
-        process.exitCode = 1
-      }
-    },
+        .command(
+          'get <name>',
+          'Download a prompt from GitHub into the local pdfanki prompts directory.',
+          commandY =>
+            withUiOptions(
+              commandY
+                .positional('name', {
+                  type: 'string',
+                  describe: 'Prompt name without the .md extension.',
+                  demandOption: true,
+                })
+                .option('force', {
+                  type: 'boolean',
+                  default: false,
+                  describe: 'Overwrite the local prompt if it already exists.',
+                }),
+            ),
+          async args => handleGetPrompt(args),
+        )
+        .demandCommand(1, 'Choose a prompts subcommand.'),
+    async () => {},
+  )
+  .command(
+    'list-prompts',
+    false,
+    y => withUiOptions(y),
+    async args => handleListLocalPrompts(args),
   )
   .command(
     'index-template <count> [out]',
@@ -720,7 +891,7 @@ const cli = yargs(rawArgs)
             type: 'boolean',
             default: false,
             describe:
-              'Print JSON or markdown output without writing files. For Anki export, prints markdown and skips package creation.',
+              'Run normally but skip writing JSON, markdown, .apkg, and failure artifact files.',
           }),
       ),
     async args => {
@@ -1007,7 +1178,6 @@ const cli = yargs(rawArgs)
             if (usedDefaultCheckpointOutput) {
               logger.info(`- output path defaulted to cwd: ${process.cwd()}`)
             }
-            writeStdoutPayload(checkpointPayload)
             return
           }
 
@@ -1275,7 +1445,6 @@ const cli = yargs(rawArgs)
               logger.info('Output path defaulted to current working directory.')
             }
           }
-          writeStdoutPayload(markdownPayload)
           logger.info(`Using prompt "${prompt.name}" from ${prompt.path}`)
           return
         }

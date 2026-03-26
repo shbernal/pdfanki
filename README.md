@@ -34,10 +34,12 @@ How the CLI works
   - `pdfanki --from-file book.pdf --to-anki --deck-title "Book Deck"`
 - Example: generate markdown with DeepSeek
   - `pdfanki --from-file book.pdf --provider deepseek --model deepseek-chat --to-md`
+- Example: print the current config
+  - `pdfanki config`
 - Inspect intermediate steps before sending to a model or exporting:
   - `pdfanki --from-file book.pdf --to-json`
   - `pdfanki --from-file book.pdf --to-md`
-- Print JSON or markdown output without writing files:
+- Simulate JSON or markdown generation without writing files:
   - `pdfanki --from-file book.pdf --to-json --dry-run`
   - `pdfanki --from-file book.pdf --to-md --dry-run`
 - Defaults go to the current working directory with filenames derived from the input (`kebab-case`).

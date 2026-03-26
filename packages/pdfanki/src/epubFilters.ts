@@ -23,5 +23,7 @@ export const DEFAULT_EPUB_TITLE_FILTERS: EpubTitleFilter[] = [
   { type: 'regex', pattern: '^table\\s+of\\s+contents$', flags: 'i' },
   { type: 'regex', pattern: '^newsletters?$', flags: 'i' },
   { type: 'regex', pattern: '^praise\\s+of(?:\\s+.+)?$', flags: 'i' },
+  { type: 'regex', pattern: '^a\\s+note\\s+on\\s+the\\s+author$', flags: 'i' },
+  { type: 'regex', pattern: "^author['’]s\\s+note$", flags: 'i' },
   { type: 'regex', pattern: '^illustration\\s+credits$', flags: 'i' },
 ]

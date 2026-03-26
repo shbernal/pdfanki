@@ -433,7 +433,7 @@ packages:
     hasBin: true
 
   '@shbernal/pdfanki@file:../../downloads/shbernal-pdfanki-0.1.0.tgz':
-    resolution: {integrity: sha512-VfnsZzTLZpEQIaMj4KkuRfkgm/YD5+sms2HEml9wlgzBuLO7uTJzccWZIS9+0ya9fBqxTcNtmY/HqF8GBZkibg==, tarball: file:../../downloads/shbernal-pdfanki-0.1.0.tgz}
+    resolution: {integrity: sha512-qiaeGIMosVBaBY76NA3zP0NSbgmt1NSFDaeozvpt9+7XXzk2M/ebJv17Whu6LkK35s2XagQ2xQObBcqQdsblvA==, tarball: file:../../downloads/shbernal-pdfanki-0.1.0.tgz}
     version: 0.1.0
 
   '@types/estree@1.0.8':
