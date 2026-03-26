@@ -15,7 +15,11 @@
       "outputs": []
     },
     "format": {
-      "cache": false
+      "outputs": []
+    },
+    "clean": {
+      "cache": false,
+      "outputs": []
     }
   }
 }

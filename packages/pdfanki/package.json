@@ -2,7 +2,7 @@
   "name": "@shbernal/pdfanki",
   "version": "0.1.0",
   "type": "module",
-  "packageManager": "pnpm@10.28.1",
+  "packageManager": "pnpm@10.30.3",
   "description": "Core PDF/EPUB parsing and flashcard generation utilities for pdfanki",
   "author": "shbernal <shbernal.01@gmail.com>",
   "license": "MIT",
@@ -37,6 +37,7 @@
     "access": "public"
   },
   "scripts": {
+    "clean": "node -e \"const fs=require('fs');['dist','node_modules','tsconfig.tsbuildinfo'].forEach(p=>fs.rmSync(p,{recursive:true,force:true}))\"",
     "build": "tsc -b tsconfig.json",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",

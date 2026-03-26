@@ -5,7 +5,9 @@ import {
   DEFAULT_EPUB_TITLE_FILTERS,
   type EpubTitleFilter,
 } from '@shbernal/pdfanki/server'
-import type { SupportedProvider } from '@shbernal/pdfanki/server'
+import type { SupportedProvider as ServerSupportedProvider } from '@shbernal/pdfanki/server'
+
+export type SupportedProvider = ServerSupportedProvider | 'deepseek'
 
 const CONFIG_DIRNAME = 'pdfanki'
 const DEFAULT_PROMPT_NAME = 'default'
@@ -60,6 +62,9 @@ export const DEFAULT_SETTINGS: Settings = {
     },
     openai: {
       defaultModel: 'gpt-5.2-2025-12-11',
+    },
+    deepseek: {
+      defaultModel: 'deepseek-chat',
     },
   },
   outputPath: '.',
@@ -133,6 +138,15 @@ export async function ensureConfig(): Promise<ConfigPaths> {
   await ensureFile(paths.defaultPrompt, DEFAULT_PROMPT_CONTENT + '\n')
 
   return paths
+}
+
+/**
+ * Delete the existing config directory (if any) and recreate defaults.
+ */
+export async function resetConfig(): Promise<ConfigPaths> {
+  const paths = getConfigPaths()
+  await fs.rm(paths.dir, { recursive: true, force: true })
+  return ensureConfig()
 }
 
 export async function loadSettings(): Promise<Settings> {

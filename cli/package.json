@@ -9,7 +9,7 @@
     "cli"
   ],
   "type": "module",
-  "packageManager": "pnpm@10.28.1",
+  "packageManager": "pnpm@10.30.3",
   "bin": {
     "pdfanki": "dist/index.js"
   },
@@ -17,6 +17,7 @@
     "dist"
   ],
   "scripts": {
+    "clean": "node -e \"const fs=require('fs');['dist','node_modules','tsconfig.tsbuildinfo'].forEach(p=>fs.rmSync(p,{recursive:true,force:true}))\"",
     "dev": "tsx src/index.ts",
     "build": "tsc -b tsconfig.json",
     "typecheck": "tsc -p tsconfig.typecheck.json",

@@ -5,10 +5,61 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import { DEFAULT_EPUB_TITLE_FILTERS } from './epubFilters.js'
 
+const ANSI_BRIGHT_BLUE = '\u001b[94m'
+const ANSI_BRIGHT_RED = '\u001b[91m'
+const ANSI_BRIGHT_YELLOW = '\u001b[93m'
+const ANSI_UNDERLINE = '\u001b[4m'
+const ANSI_RESET = '\u001b[0m'
+
+function canUseColor() {
+  return process.stdout.isTTY && process.env.NO_COLOR !== '1'
+}
+
+function styleText(
+  text: string,
+  options: {
+    useColor?: boolean
+    color?: 'blue' | 'red' | 'yellow'
+    underline?: boolean
+  } = {},
+) {
+  const useColor = options.useColor === true
+  const color = options.color
+  const underline = options.underline === true
+  if (!useColor) return text
+
+  let prefix = ''
+  if (underline) {
+    prefix += ANSI_UNDERLINE
+  }
+  if (color === 'blue') {
+    prefix += ANSI_BRIGHT_BLUE
+  } else if (color === 'red') {
+    prefix += ANSI_BRIGHT_RED
+  } else if (color === 'yellow') {
+    prefix += ANSI_BRIGHT_YELLOW
+  }
+
+  if (!prefix) return text
+  return `${prefix}${text}${ANSI_RESET}`
+}
+
+function formatNumberGroups(value: number): string {
+  const sign = value < 0 ? '-' : ''
+  const absValue = Math.abs(Math.trunc(value))
+  const grouped = absValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+  return `${sign}${grouped}`
+}
+
 /**
  * Parse EPUB using epub library and return a promise
  */
-export function parseEpubWithEpubLib(fileBuffer, fileName) {
+export function parseEpubWithEpubLib(
+  fileBuffer,
+  fileName,
+  titleFilters = DEFAULT_EPUB_TITLE_FILTERS,
+  minChars?,
+) {
   return new Promise((resolve, reject) => {
     try {
       // Create a temporary file since epub library expects a file path
@@ -32,27 +83,48 @@ export function parseEpubWithEpubLib(fileBuffer, fileName) {
 
       epub.on('end', async function () {
         try {
+          const useColor = canUseColor()
+          const titleMatchers = buildTitleMatchers(titleFilters)
+          const bookTitle =
+            (epub.metadata.title || fileName.replace(/\.epub$/i, '')).trim() ||
+            fileName
           console.log(
-            `Found "${epub.metadata.title}" by ${epub.metadata.creator}`,
+            styleText(bookTitle, {
+              useColor,
+              color: 'blue',
+              underline: true,
+            }),
           )
 
           // Get content list (chapters)
           const chapters = epub.flow
           const totalChapters = chapters.length
 
-          console.log(`📄 Found ${totalChapters} content sections`)
+          const sectionsFoundMessage = `${totalChapters} content sections:`
+          console.log(
+            styleText(sectionsFoundMessage, {
+              useColor,
+              color: 'blue',
+            }),
+          )
 
           // Extract text from all chapters
           const extractedChapters = []
           for (let i = 0; i < chapters.length; i++) {
             const chapter = chapters[i]
             const chapterTitle = chapter.title || `Section ${i + 1}`
-            console.log(`Processing: ${chapterTitle}`)
 
             try {
               // Get chapter content
               const chapterText = await getChapterText(epub, chapter.id)
               const cleanText = cleanHtmlText(chapterText)
+              const sectionCharCount = cleanText.length
+              const filterResult = shouldFilterContent(
+                chapterTitle,
+                cleanText,
+                titleMatchers,
+                minChars,
+              )
 
               extractedChapters.push({
                 index: i + 1,
@@ -60,6 +132,21 @@ export function parseEpubWithEpubLib(fileBuffer, fileName) {
                 text: cleanText,
                 originalIndex: i + 1,
               })
+              const charCountLabel = styleText(
+                `${formatNumberGroups(sectionCharCount)} char`,
+                {
+                  useColor,
+                  color: 'yellow',
+                },
+              )
+
+              if (filterResult.shouldFilter) {
+                console.log(
+                  `${styleText('[filtered out]', { useColor, color: 'red' })} "${chapterTitle}" ${charCountLabel} - ${filterResult.reason}`,
+                )
+              } else {
+                console.log(`Processing: ${chapterTitle} ${charCountLabel}`)
+              }
             } catch (chapterError) {
               console.warn(
                 `Failed to extract chapter "${chapterTitle}": ${chapterError.message}`,
@@ -117,14 +204,9 @@ export function transformEpubResult(
   startUnit,
   endUnit,
   titleFilters = DEFAULT_EPUB_TITLE_FILTERS,
+  minChars?,
 ) {
   const { metadata, chapters, totalChapters } = epubData
-
-  console.log('Transforming EPUB data:', {
-    totalChapters: totalChapters,
-    startUnit,
-    endUnit,
-  })
 
   // Determine which chapters to extract
   const startIdx = startUnit ? parseInt(startUnit, 10) - 1 : 0
@@ -144,8 +226,6 @@ export function transformEpubResult(
   if (startIdx > endIdx) {
     throw new Error('Start section cannot be greater than end section')
   }
-
-  console.log(`Extracting sections ${startIdx + 1} to ${endIdx + 1}...`)
 
   const content = []
   const filteredOut = []
@@ -167,6 +247,7 @@ export function transformEpubResult(
       chapter.title,
       chapter.text,
       titleMatchers,
+      minChars,
     )
 
     if (filterResult.shouldFilter) {
@@ -175,7 +256,6 @@ export function transformEpubResult(
         title: chapter.title,
         reason: filterResult.reason,
       })
-      console.log(`Filtered out: "${chapter.title}" (${filterResult.reason})`)
       continue
     }
 
@@ -194,16 +274,7 @@ export function transformEpubResult(
         title: chapter.title,
         reason: 'empty content',
       })
-      console.log(`Filtered out: "${chapter.title}" (empty content)`)
     }
-  }
-
-  // Log summary of filtered content
-  if (filteredOut.length > 0) {
-    console.log(`\nFiltered out ${filteredOut.length} sections:`)
-    filteredOut.forEach(item => {
-      console.log(`   - "${item.title}" (${item.reason})`)
-    })
   }
 
   // Build metadata to match PDF format
@@ -309,10 +380,19 @@ function buildTitleMatchers(filters) {
   return matchers
 }
 
-function shouldFilterContent(title, text, titleMatchers) {
+function shouldFilterContent(title, text, titleMatchers, minChars?) {
+  const textLength = text?.length ?? 0
+
   // Check if content is empty
   if (!text || text.trim().length === 0) {
     return { shouldFilter: true, reason: 'empty content' }
+  }
+
+  if (typeof minChars === 'number' && minChars > 0 && textLength < minChars) {
+    return {
+      shouldFilter: true,
+      reason: `below minimum characters: ${formatNumberGroups(textLength)} < ${formatNumberGroups(minChars)}`,
+    }
   }
 
   // Check if title matches filtering patterns (case insensitive)

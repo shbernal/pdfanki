@@ -13,10 +13,10 @@ export async function parsePdfWithPdfParse(fileBuffer, debug = false) {
   })
 
   try {
-    const [textResult, infoResult] = await Promise.all([
-      parser.getText(),
-      parser.getInfo(),
-    ])
+    // Avoid parallel calls so the same buffer isn't transferred twice to the
+    // pdf.js worker (Node 24 will throw a DataCloneError otherwise).
+    const textResult = await parser.getText()
+    const infoResult = await parser.getInfo()
 
     const pageTexts = textResult.pages?.map(page => page.text ?? '') ?? []
 

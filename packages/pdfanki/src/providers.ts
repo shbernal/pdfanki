@@ -1,6 +1,6 @@
 import type { BookJson } from './types/flashcards.js'
 
-export type SupportedProvider = 'gemini' | 'anthropic' | 'openai'
+export type SupportedProvider = 'gemini' | 'anthropic' | 'openai' | 'deepseek'
 
 export type GenerateFlashcardsOptions = {
   provider: SupportedProvider
@@ -11,6 +11,7 @@ export type GenerateFlashcardsOptions = {
 }
 
 const GEMINI_TIMEOUT_MS = 180_000
+const DEEPSEEK_BASE_URL = 'https://api.deepseek.com/v1'
 
 export function bookJsonToPlainText(book: BookJson): string {
   const parts: string[] = []
@@ -40,6 +41,8 @@ export async function generateFlashcards(
       return callAnthropic(options)
     case 'openai':
       return callOpenAI(options)
+    case 'deepseek':
+      return callDeepSeek(options)
     default:
       throw new Error(`Unsupported provider "${provider}".`)
   }
@@ -108,9 +111,37 @@ async function callAnthropic(
 }
 
 async function callOpenAI(options: GenerateFlashcardsOptions): Promise<string> {
+  return callOpenAICompatible({
+    ...options,
+    providerName: 'OpenAI',
+  })
+}
+
+async function callDeepSeek(
+  options: GenerateFlashcardsOptions,
+): Promise<string> {
+  return callOpenAICompatible({
+    ...options,
+    providerName: 'DeepSeek',
+    baseURL: process.env.DEEPSEEK_BASE_URL ?? DEEPSEEK_BASE_URL,
+  })
+}
+
+type OpenAICompatibleOptions = GenerateFlashcardsOptions & {
+  providerName: string
+  baseURL?: string
+}
+
+async function callOpenAICompatible(
+  options: OpenAICompatibleOptions,
+): Promise<string> {
   const { prompt, content, apiKey, model } = options
+  const { providerName, baseURL } = options
   const OpenAI = (await import('openai')).default
-  const client = new OpenAI({ apiKey })
+  const client = new OpenAI({
+    apiKey,
+    ...(baseURL ? { baseURL } : {}),
+  })
   const response = await client.chat.completions.create({
     model,
     messages: [
@@ -122,7 +153,7 @@ async function callOpenAI(options: GenerateFlashcardsOptions): Promise<string> {
 
   const text = response.choices?.[0]?.message?.content
   if (!text) {
-    throw new Error('OpenAI returned no text content.')
+    throw new Error(`${providerName} returned no text content.`)
   }
 
   return text.trim()

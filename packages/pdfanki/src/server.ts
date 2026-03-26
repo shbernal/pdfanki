@@ -19,6 +19,7 @@ export type ConvertFileOptions = {
   indexPath?: string
   startUnit?: number
   endUnit?: number
+  minChars?: number
   provider?: SupportedProvider
   model?: string
   epubFilters?: EpubFilters
@@ -69,11 +70,63 @@ async function loadIndexFile(indexPath?: string): Promise<IndexEntry[] | null> {
   return parsed as IndexEntry[]
 }
 
+function applyMinCharsFilter(
+  book: BookJson,
+  minChars?: number,
+): { data: BookJson; filteredCount: number } {
+  if (typeof minChars !== 'number' || minChars <= 0) {
+    return { data: book, filteredCount: 0 }
+  }
+
+  let filteredCount = 0
+  const keptSections: BookJson['content'] = []
+
+  for (const section of book.content) {
+    const textLength = section.text?.length ?? 0
+    if (textLength < minChars) {
+      filteredCount++
+      continue
+    }
+    keptSections.push(section)
+  }
+
+  if (filteredCount === 0) {
+    return { data: book, filteredCount: 0 }
+  }
+
+  const reindexedContent = keptSections.map((section, index) => ({
+    ...section,
+    index: index + 1,
+  }))
+
+  return {
+    filteredCount,
+    data: {
+      ...book,
+      metadata: {
+        ...book.metadata,
+        extractedSections: reindexedContent.length,
+        filteredSections:
+          (book.metadata?.filteredSections ?? 0) + filteredCount,
+      },
+      content: reindexedContent,
+    },
+  }
+}
+
 export async function convertFileFromPath(
   options: ConvertFileOptions,
 ): Promise<ConvertFileResult> {
-  const { inputPath, type, indexPath, startUnit, endUnit, epubFilters, debug } =
-    options
+  const {
+    inputPath,
+    type,
+    indexPath,
+    startUnit,
+    endUnit,
+    minChars,
+    epubFilters,
+    debug,
+  } = options
 
   if (!inputPath) {
     throw new Error('inputPath is required')
@@ -94,21 +147,29 @@ export async function convertFileFromPath(
       parsedIndex,
     )
     const cleaned = cleanTransformedResult(transformed)
+    const { data: filteredByMinChars } = applyMinCharsFilter(cleaned, minChars)
     return {
-      data: cleaned,
-      text: bookJsonToPlainText(cleaned),
+      data: filteredByMinChars,
+      text: bookJsonToPlainText(filteredByMinChars),
       fileType,
       sourcePath: inputPath,
     }
   }
 
-  const epubData = await parseEpubWithEpubLib(fileBuffer, originalFile.name)
+  const appliedTitleFilters = epubFilters?.titles ?? DEFAULT_EPUB_TITLE_FILTERS
+  const epubData = await parseEpubWithEpubLib(
+    fileBuffer,
+    originalFile.name,
+    appliedTitleFilters,
+    minChars,
+  )
   const transformed = transformEpubResult(
     epubData,
     originalFile,
     startUnit,
     endUnit,
-    epubFilters?.titles ?? DEFAULT_EPUB_TITLE_FILTERS,
+    appliedTitleFilters,
+    minChars,
   )
   const cleaned = cleanTransformedResult(transformed)
   return {

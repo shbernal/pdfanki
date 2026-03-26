@@ -10,7 +10,7 @@ Project layout
 
 Requirements
 - Node.js >= 20
-- Provider API key exported in your shell: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY`
+- Provider API key exported in your shell: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `DEEPSEEK_API_KEY`
 
 Install (CLI)
 ```bash
@@ -31,6 +31,8 @@ How the CLI works
   - Anki: Final `.apkg`
 - Example: create an Anki deck from a file
   - `pdfanki --from-file book.pdf --to-anki --deck-title "Book Deck"`
+- Example: generate markdown with DeepSeek
+  - `pdfanki --from-file book.pdf --provider deepseek --model deepseek-chat --to-md`
 - Inspect intermediate steps before sending to a model or exporting:
   - `pdfanki --from-file book.pdf --to-json`
   - `pdfanki --from-file book.pdf --to-md`

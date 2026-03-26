@@ -9,7 +9,7 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 ### Requirements
 
 - Node >=20
-- Provider API keys via environment variables: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`
+- Provider API keys via environment variables: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `DEEPSEEK_API_KEY`
 
 ## Config (XDG)
 
@@ -28,6 +28,7 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
   - Anki : The Anki deck in .apkg (only output)
 
 - Create an Anki deck from a PDF/EPUB : `pdfanki --from-file file.pdf --to-anki --deck-title "Title"`
+- Use DeepSeek explicitly (with `DEEPSEEK_API_KEY` set): `pdfanki --from-file file.pdf --provider deepseek --model deepseek-chat --to-md`
 
 - Inspect the file contents before passing it to an AI model : `pdfanki --from-file file.pdf --to-json`
   - Use cases :
@@ -43,6 +44,11 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 ### Usage notes
 
 - Default outputs go to the current working directory with filenames derived from the input (`kebab-case`).
+- Log and UX controls:
+  - `--verbose`: detailed per-section logs and provider/model diagnostics.
+  - `--quiet` / `-q`: warnings and errors only.
+  - `--no-color`: disable ANSI colors.
+  - `--no-spinner`: disable loading animations and progress rendering.
 - `--index` expects a JSON array of chapter ranges for PDFs. Format:
 
   ```json
@@ -54,8 +60,8 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
   ```
 
 - Pages are 1-based and inclusive; `start` ≤ `end`. Each entry maps to one output section.
-- `--index-create-template` : creates an `index.json` template for custom separation of sections.
-- `--index-count` : specify how many chapters create for the `index.json` template.
+- Generate a blank index template: `pdfanki index-template 8 --from-file book.pdf` (writes `./book.index.json`; omit `--from-file` to default to `./index.json`).
+- `--min-char <num>` filters out extracted sections with fewer than `<num>` characters.
 
 - Index is only supported for PDFs. EPUB files generally often provide a well-structured index.
 
