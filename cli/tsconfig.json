@@ -8,7 +8,6 @@
     "noEmit": false,
     "moduleResolution": "Bundler",
     "composite": true,
-    "baseUrl": ".",
     "paths": {
       "@shbernal/pdfanki": ["../packages/pdfanki/dist/index.d.ts"],
       "@shbernal/pdfanki/*": ["../packages/pdfanki/dist/*"]
