@@ -18,6 +18,19 @@ Install (CLI)
 pnpm i -g @shbernal/pdfanki-cli
 ```
 
+Local repo workflows
+- Run the local-dev CLI against repo sources from the project root:
+  - `pnpm pdfanki-local -- --from-file /path/to/book.epub --to-json`
+- Run the pack/install smoke test from the project root:
+  - `pnpm cli-local-test`
+- `pnpm cli-local-test` defaults to writing tarballs under `.tmp/packed/`.
+- Override the pack output directory when needed:
+  - `PDFANKI_PACK_DIR=/tmp/pdfanki-packed pnpm cli-local-test`
+- Sync config prompts into tracked repo prompts:
+  - `pnpm fetch-config-prompts`
+- Override the prompt source directory when needed:
+  - `PDFANKI_CONFIG_PROMPTS_DIR=/path/to/prompts pnpm fetch-config-prompts`
+
 Config (XDG)
 - Config dir: `$XDG_CONFIG_HOME/pdfanki/` or `~/.pdfanki/` if unset
 - Auto-created on first run:

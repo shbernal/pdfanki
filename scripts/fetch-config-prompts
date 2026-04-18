@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
+REPO_PROMPTS_DIR="$PROJECT_ROOT/cli/prompts"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/fetch-config-prompts
+
+Copy local config prompts into matching tracked repo prompts.
+
+Environment variables:
+  PDFANKI_CONFIG_PROMPTS_DIR  Explicit prompts source directory.
+  PDFANKI_CONFIG_DIR          Config directory; prompts are read from <dir>/prompts.
+  XDG_CONFIG_HOME            Used as <xdg>/pdfanki/prompts when set.
+
+Fallback order when no env override is set:
+  1. $XDG_CONFIG_HOME/pdfanki/prompts
+  2. $HOME/.config/pdfanki/prompts
+  3. $HOME/.pdfanki/prompts
+EOF
+}
+
+resolve_config_prompts_dir() {
+  if [[ -n "${PDFANKI_CONFIG_PROMPTS_DIR:-}" ]]; then
+    printf '%s\n' "${PDFANKI_CONFIG_PROMPTS_DIR}"
+    return
+  fi
+
+  if [[ -n "${PDFANKI_CONFIG_DIR:-}" ]]; then
+    printf '%s\n' "${PDFANKI_CONFIG_DIR}/prompts"
+    return
+  fi
+
+  if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then
+    printf '%s\n' "${XDG_CONFIG_HOME}/pdfanki/prompts"
+    return
+  fi
+
+  if [[ -d "${HOME}/.config/pdfanki/prompts" ]]; then
+    printf '%s\n' "${HOME}/.config/pdfanki/prompts"
+    return
+  fi
+
+  printf '%s\n' "${HOME}/.pdfanki/prompts"
+}
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+esac
+
+CONFIG_PROMPTS_DIR="$(resolve_config_prompts_dir)"
+
+cd "$PROJECT_ROOT"
+
+if [[ ! -d "$CONFIG_PROMPTS_DIR" ]]; then
+  echo "Config prompt directory not found: $CONFIG_PROMPTS_DIR"
+  exit 1
+fi
+
+if [[ ! -d "$REPO_PROMPTS_DIR" ]]; then
+  echo "Repo prompt directory not found: $REPO_PROMPTS_DIR"
+  exit 1
+fi
+
+mapfile -t config_files < <(find "$CONFIG_PROMPTS_DIR" -maxdepth 1 -type f -name '*.md' -printf '%f\n' | sort)
+
+if (( ${#config_files[@]} == 0 )); then
+  echo "No config prompts found in $CONFIG_PROMPTS_DIR"
+  exit 0
+fi
+
+copied=0
+skipped=0
+
+for file in "${config_files[@]}"; do
+  src="$CONFIG_PROMPTS_DIR/$file"
+  dst="$REPO_PROMPTS_DIR/$file"
+
+  if [[ ! -f "$dst" ]]; then
+    echo "Skipping $file: no matching repo prompt at $dst"
+    ((skipped+=1))
+    continue
+  fi
+
+  if cmp -s "$src" "$dst"; then
+    echo "Unchanged: $file"
+    continue
+  fi
+
+  if ! git -C "$PROJECT_ROOT" diff --quiet -- "$dst"; then
+    echo "Skipping $file: repo copy already has uncommitted changes"
+    ((skipped+=1))
+    continue
+  fi
+
+  echo "=== $file ==="
+  git --no-pager diff --no-index -- "$dst" "$src" || true
+  cp "$src" "$dst"
+  echo "Updated: cli/prompts/$file"
+  ((copied+=1))
+done
+
+echo
+printf 'Done. Updated: %d, skipped: %d\n' "$copied" "$skipped"

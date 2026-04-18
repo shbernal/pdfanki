@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { promises as fs } from 'fs'
 import { dirname, join, parse } from 'path'
-import type { BookJson, ContentSection } from '@shbernal/pdfanki/server'
 import {
   convertMarkdownToAnkiDeck,
   type ConvertMarkdownToAnkiDeckOptions,
@@ -9,12 +8,14 @@ import {
 import yargs, { type Argv } from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import {
+  bookJsonToPlainText,
   convertFileFromPath,
   generateFlashcards as generateFlashcardsFromServer,
-  bookJsonToPlainText,
+  validateJsonStructure,
+  type BookJson,
+  type ContentSection,
   type ConvertFileOptions,
-} from '@shbernal/pdfanki/server'
-import { validateJsonStructure } from '@shbernal/pdfanki/client'
+} from './pdfankiRuntime.js'
 import {
   ensureConfig,
   loadPrompt,
@@ -36,6 +37,11 @@ import {
 import { createLogger, type LogLevel } from './ui/logger.js'
 import { createSpinner, type Spinner } from './ui/spinner.js'
 import { createProgressBar, type ProgressBar } from './ui/progress.js'
+
+const callerCwd = process.env.PDFANKI_CALLER_CWD
+if (callerCwd && callerCwd !== process.cwd()) {
+  process.chdir(callerCwd)
+}
 
 function toKebabAlnum(value: string): string {
   const normalized = value

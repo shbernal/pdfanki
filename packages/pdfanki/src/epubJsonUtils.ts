@@ -60,139 +60,112 @@ export function parseEpubWithEpubLib(
   titleFilters = DEFAULT_EPUB_TITLE_FILTERS,
   minChars?,
 ) {
-  return new Promise((resolve, reject) => {
-    try {
-      // Create a temporary file since epub library expects a file path
-      const tempFilePath = join(tmpdir(), `temp_epub_${Date.now()}_${fileName}`)
+  return (async () => {
+    // Create a temporary file since epub library expects a file path
+    const tempFilePath = join(tmpdir(), `temp_epub_${Date.now()}_${fileName}`)
 
+    try {
       // Write buffer to temporary file
       writeFileSync(tempFilePath, fileBuffer)
 
       console.log(`Parsing EPUB file: ${fileName}`)
       const epub = new EPub(tempFilePath)
+      await epub.parse()
 
-      epub.on('error', function (err) {
-        // Clean up temp file
-        try {
-          unlinkSync(tempFilePath)
-        } catch {
-          console.warn(`Could not clean up temporary file: ${tempFilePath}`)
-        }
-        reject(new Error(`Failed to parse EPUB: ${err.message}`))
-      })
+      const useColor = canUseColor()
+      const titleMatchers = buildTitleMatchers(titleFilters)
+      const bookTitle =
+        (epub.metadata.title || fileName.replace(/\.epub$/i, '')).trim() ||
+        fileName
+      console.log(
+        styleText(bookTitle, {
+          useColor,
+          color: 'blue',
+          underline: true,
+        }),
+      )
 
-      epub.on('end', async function () {
+      // Get content list (chapters)
+      const chapters = epub.flow
+      const totalChapters = chapters.length
+
+      const sectionsFoundMessage = `${totalChapters} content sections:`
+      console.log(
+        styleText(sectionsFoundMessage, {
+          useColor,
+          color: 'blue',
+        }),
+      )
+
+      // Extract text from all chapters
+      const extractedChapters = []
+      for (let i = 0; i < chapters.length; i++) {
+        const chapter = chapters[i]
+        const chapterTitle = chapter.title || `Section ${i + 1}`
+
         try {
-          const useColor = canUseColor()
-          const titleMatchers = buildTitleMatchers(titleFilters)
-          const bookTitle =
-            (epub.metadata.title || fileName.replace(/\.epub$/i, '')).trim() ||
-            fileName
-          console.log(
-            styleText(bookTitle, {
-              useColor,
-              color: 'blue',
-              underline: true,
-            }),
+          // Get chapter content
+          const chapterText = await getChapterText(epub, chapter.id)
+          const cleanText = cleanHtmlText(chapterText)
+          const sectionCharCount = cleanText.length
+          const filterResult = shouldFilterContent(
+            chapterTitle,
+            cleanText,
+            titleMatchers,
+            minChars,
           )
 
-          // Get content list (chapters)
-          const chapters = epub.flow
-          const totalChapters = chapters.length
-
-          const sectionsFoundMessage = `${totalChapters} content sections:`
-          console.log(
-            styleText(sectionsFoundMessage, {
+          extractedChapters.push({
+            index: i + 1,
+            title: chapterTitle,
+            text: cleanText,
+            originalIndex: i + 1,
+          })
+          const charCountLabel = styleText(
+            `${formatNumberGroups(sectionCharCount)} char`,
+            {
               useColor,
-              color: 'blue',
-            }),
+              color: 'yellow',
+            },
           )
 
-          // Extract text from all chapters
-          const extractedChapters = []
-          for (let i = 0; i < chapters.length; i++) {
-            const chapter = chapters[i]
-            const chapterTitle = chapter.title || `Section ${i + 1}`
-
-            try {
-              // Get chapter content
-              const chapterText = await getChapterText(epub, chapter.id)
-              const cleanText = cleanHtmlText(chapterText)
-              const sectionCharCount = cleanText.length
-              const filterResult = shouldFilterContent(
-                chapterTitle,
-                cleanText,
-                titleMatchers,
-                minChars,
-              )
-
-              extractedChapters.push({
-                index: i + 1,
-                title: chapterTitle,
-                text: cleanText,
-                originalIndex: i + 1,
-              })
-              const charCountLabel = styleText(
-                `${formatNumberGroups(sectionCharCount)} char`,
-                {
-                  useColor,
-                  color: 'yellow',
-                },
-              )
-
-              if (filterResult.shouldFilter) {
-                console.log(
-                  `${styleText('[filtered out]', { useColor, color: 'red' })} "${chapterTitle}" ${charCountLabel} - ${filterResult.reason}`,
-                )
-              } else {
-                console.log(`Processing: ${chapterTitle} ${charCountLabel}`)
-              }
-            } catch (chapterError) {
-              console.warn(
-                `Failed to extract chapter "${chapterTitle}": ${chapterError.message}`,
-              )
-              // Add empty chapter to maintain index consistency
-              extractedChapters.push({
-                index: i + 1,
-                title: chapterTitle,
-                text: '',
-                originalIndex: i + 1,
-                error: chapterError.message,
-              })
-            }
+          if (filterResult.shouldFilter) {
+            console.log(
+              `${styleText('[filtered out]', { useColor, color: 'red' })} "${chapterTitle}" ${charCountLabel} - ${filterResult.reason}`,
+            )
+          } else {
+            console.log(`Processing: ${chapterTitle} ${charCountLabel}`)
           }
-
-          const result = {
-            metadata: epub.metadata,
-            chapters: extractedChapters,
-            totalChapters: totalChapters,
-          }
-
-          // Clean up temp file
-          try {
-            unlinkSync(tempFilePath)
-          } catch {
-            console.warn(`Could not clean up temporary file: ${tempFilePath}`)
-          }
-
-          resolve(result)
-        } catch (error) {
-          // Clean up temp file
-          try {
-            unlinkSync(tempFilePath)
-          } catch {
-            console.warn(`Could not clean up temporary file: ${tempFilePath}`)
-          }
-          reject(error)
+        } catch (chapterError) {
+          console.warn(
+            `Failed to extract chapter "${chapterTitle}": ${chapterError.message}`,
+          )
+          // Add empty chapter to maintain index consistency
+          extractedChapters.push({
+            index: i + 1,
+            title: chapterTitle,
+            text: '',
+            originalIndex: i + 1,
+            error: chapterError.message,
+          })
         }
-      })
+      }
 
-      // Start parsing
-      epub.parse()
+      return {
+        metadata: epub.metadata,
+        chapters: extractedChapters,
+        totalChapters: totalChapters,
+      }
     } catch (error) {
-      reject(error)
+      throw new Error(`Failed to parse EPUB: ${(error as Error).message}`)
+    } finally {
+      try {
+        unlinkSync(tempFilePath)
+      } catch {
+        console.warn(`Could not clean up temporary file: ${tempFilePath}`)
+      }
     }
-  })
+  })()
 }
 
 /**
@@ -311,15 +284,7 @@ export function transformEpubResult(
  * Helper function to get chapter text (promisified)
  */
 function getChapterText(epub, chapterId) {
-  return new Promise((resolve, reject) => {
-    epub.getChapter(chapterId, function (err, text) {
-      if (err) {
-        reject(err)
-      } else {
-        resolve(text)
-      }
-    })
-  })
+  return epub.getChapter(chapterId)
 }
 
 /**

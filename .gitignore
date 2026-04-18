@@ -3,8 +3,7 @@
 .env*
 *.tsbuildinfo
 .turbo
-
-**/scripts/
+.tmp/
 
 AGENTS.md
 
@@ -14,3 +13,7 @@ fixtures/local/**
 !fixtures/local/README.md
 
 docs/
+
+.codex
+
+test/

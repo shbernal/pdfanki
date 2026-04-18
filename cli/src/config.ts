@@ -4,8 +4,8 @@ import { homedir } from 'os'
 import {
   DEFAULT_EPUB_TITLE_FILTERS,
   type EpubTitleFilter,
-} from '@shbernal/pdfanki/server'
-import type { SupportedProvider as ServerSupportedProvider } from '@shbernal/pdfanki/server'
+  type SupportedProvider as ServerSupportedProvider,
+} from './pdfankiRuntime.js'
 
 export type SupportedProvider = ServerSupportedProvider
 

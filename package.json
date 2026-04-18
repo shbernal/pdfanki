@@ -10,18 +10,21 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "clean": "turbo clean",
-    "format": "turbo format"
+    "format": "turbo format",
+    "fetch-config-prompts": "./scripts/fetch-config-prompts",
+    "cli-local-test": "./scripts/cli-local-test",
+    "pdfanki-local": "env PDFANKI_LOCAL_DEV=1 PDFANKI_CALLER_CWD=\"$INIT_CWD\" pnpm --dir cli exec node --import tsx src/index.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.5.0",
-    "@typescript-eslint/eslint-plugin": "^8.57.2",
-    "@typescript-eslint/parser": "^8.57.2",
-    "eslint": "^10.1.0",
+    "@types/node": "^25.6.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/parser": "^8.58.2",
+    "eslint": "^10.2.0",
     "eslint-plugin-unused-imports": "^4.4.1",
-    "prettier": "^3.8.1",
-    "turbo": "^2.8.21",
-    "typescript": "^6.0.2"
+    "prettier": "^3.8.3",
+    "turbo": "^2.9.6",
+    "typescript": "^6.0.3"
   },
   "prettier": {
     "semi": false,

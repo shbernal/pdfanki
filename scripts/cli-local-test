@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/cli-local-test
+
+Build, lint, typecheck, pack, and smoke-install the local `pdfanki` packages.
+
+Environment variables:
+  PDFANKI_PACK_DIR   Directory for generated tarballs.
+                     Default: <repo>/.tmp/packed
+  PDFANKI_SMOKE_DIR  Existing or new directory to use for the throwaway smoke app.
+                     Default: a new temporary directory under $TMPDIR or /tmp
+EOF
+}
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+esac
+
+cd "${PROJECT_ROOT}"
+
+echo "Running from ${PROJECT_ROOT}"
+
+CLI_PKG_JSON="${PROJECT_ROOT}/cli/package.json"
+CORE_PKG_JSON="${PROJECT_ROOT}/packages/pdfanki/package.json"
+
+PACK_DIR="${PDFANKI_PACK_DIR:-${PROJECT_ROOT}/.tmp/packed}"
+mkdir -p "${PACK_DIR}"
+
+SMOKE_DIR_CREATED=0
+if [[ -n "${PDFANKI_SMOKE_DIR:-}" ]]; then
+  SMOKE_DIR="${PDFANKI_SMOKE_DIR}"
+  mkdir -p "${SMOKE_DIR}"
+else
+  SMOKE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pdfanki-cli-local-test.XXXXXX")"
+  SMOKE_DIR_CREATED=1
+fi
+
+if (( SMOKE_DIR_CREATED )); then
+  trap 'rm -rf "${SMOKE_DIR}"' EXIT
+fi
+
+CLI_VERSION="$(node -e "console.log(require(process.argv[1]).version)" "${CLI_PKG_JSON}")"
+CORE_VERSION="$(node -e "console.log(require(process.argv[1]).version)" "${CORE_PKG_JSON}")"
+CLI_TGZ="${PACK_DIR}/shbernal-pdfanki-cli-${CLI_VERSION}.tgz"
+CORE_TGZ="${PACK_DIR}/shbernal-pdfanki-${CORE_VERSION}.tgz"
+
+echo "=== Core (@shbernal/pdfanki) ==="
+pnpm --filter @shbernal/pdfanki clean
+pnpm install --filter @shbernal/pdfanki...
+pnpm --filter @shbernal/pdfanki typecheck
+pnpm --filter @shbernal/pdfanki lint
+pnpm --filter @shbernal/pdfanki format
+pnpm --filter @shbernal/pdfanki build
+pnpm --filter @shbernal/pdfanki pack --pack-destination "${PACK_DIR}"
+
+sleep 2
+
+echo "=== CLI (@shbernal/pdfanki-cli) ==="
+pnpm --filter @shbernal/pdfanki-cli clean
+pnpm install --filter @shbernal/pdfanki-cli...
+pnpm --filter @shbernal/pdfanki-cli typecheck
+pnpm --filter @shbernal/pdfanki-cli lint
+pnpm --filter @shbernal/pdfanki-cli format
+pnpm --filter @shbernal/pdfanki-cli build
+pnpm --filter @shbernal/pdfanki-cli pack --pack-destination "${PACK_DIR}"
+
+cat > "${SMOKE_DIR}/package.json" <<'JSON'
+{
+  "name": "pdfanki-cli-local-test",
+  "private": true
+}
+JSON
+
+echo "=== Smoke install ==="
+pnpm add --dir "${SMOKE_DIR}" "${CORE_TGZ}" "${CLI_TGZ}"
+pnpm --dir "${SMOKE_DIR}" exec pdfanki --help >/dev/null
+
+echo "Packages packed to:"
+echo " - ${CORE_TGZ}"
+echo " - ${CLI_TGZ}"
+echo "Smoke project:"
+echo " - ${SMOKE_DIR}"
+echo "Smoke install succeeded"
+echo "Script successful"

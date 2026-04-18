@@ -33,7 +33,11 @@ Create flashcards in Markdown using this exact format:
 **Avoid:**
 
 - Complete sentences or filler words
-- Always prefer numeric and abbreviations over full length (50cm over fifty centimeters)
+- Always prefer numeric and abbreviations over full length:
+  - 50cm over fifty centimeters, 1% over one percent
+  - never use "e.g.,", go directly to the examples
+  - avoid points in abbreviations (US instead of U.S.)
+- Day number in dates only when very significant (prefer abbreviated month and year, like Dec 2010)
 - Explanations, opinions, or meta-commentary
 - Redundant points already covered elsewhere
 - Trivial details that do not support a core concept
