@@ -1,5 +1,5 @@
 export type IndexEntry = {
-  title: string
+  title?: string
   start: number
   end: number
   index?: number

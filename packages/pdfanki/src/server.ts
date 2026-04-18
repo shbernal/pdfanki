@@ -17,6 +17,7 @@ export type ConvertFileOptions = {
   inputPath: string
   type?: string
   indexPath?: string
+  indexRanges?: string
   startChapter?: number
   endChapter?: number
   minChars?: number
@@ -57,6 +58,107 @@ function inferFileType(
   )
 }
 
+function normalizeIndexTitle(
+  value: unknown,
+  sourceLabel: string,
+  entryNumber: number,
+): string | undefined {
+  if (typeof value === 'undefined' || value === null) {
+    return undefined
+  }
+
+  if (typeof value !== 'string') {
+    throw new Error(
+      `${sourceLabel} entry ${entryNumber} has invalid "title"; expected a string.`,
+    )
+  }
+
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+function normalizeIndexPage(
+  value: unknown,
+  field: 'start' | 'end',
+  sourceLabel: string,
+  entryNumber: number,
+): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    throw new Error(
+      `${sourceLabel} entry ${entryNumber} has invalid "${field}"; expected a positive integer.`,
+    )
+  }
+
+  return value
+}
+
+function validateIndexEntries(
+  entries: IndexEntry[],
+  sourceLabel: string,
+): IndexEntry[] {
+  if (entries.length === 0) {
+    throw new Error(`${sourceLabel} must contain at least one range.`)
+  }
+
+  for (let i = 0; i < entries.length; i++) {
+    const current = entries[i]
+    if (current.start > current.end) {
+      throw new Error(
+        `${sourceLabel} entry ${i + 1} has start page ${current.start} greater than end page ${current.end}.`,
+      )
+    }
+
+    const previous = entries[i - 1]
+    if (!previous) continue
+
+    if (current.start < previous.start) {
+      throw new Error(
+        `${sourceLabel} entries must be sorted by start page in ascending order.`,
+      )
+    }
+
+    if (current.start <= previous.end) {
+      throw new Error(
+        `${sourceLabel} entries ${i} and ${i + 1} overlap on pages ${current.start}-${Math.min(previous.end, current.end)}.`,
+      )
+    }
+  }
+
+  return entries
+}
+
+function normalizeIndexEntries(
+  rawEntries: unknown[],
+  sourceLabel: string,
+): IndexEntry[] {
+  const entries = rawEntries.map((entry, index) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error(
+        `${sourceLabel} entry ${index + 1} must be an object with "start" and "end" fields.`,
+      )
+    }
+
+    const entryRecord = entry as Record<string, unknown>
+    const start = normalizeIndexPage(
+      entryRecord.start,
+      'start',
+      sourceLabel,
+      index + 1,
+    )
+    const end = normalizeIndexPage(
+      entryRecord.end,
+      'end',
+      sourceLabel,
+      index + 1,
+    )
+    const title = normalizeIndexTitle(entryRecord.title, sourceLabel, index + 1)
+
+    return title ? { start, end, title } : { start, end }
+  })
+
+  return validateIndexEntries(entries, sourceLabel)
+}
+
 async function loadIndexFile(indexPath?: string): Promise<IndexEntry[] | null> {
   if (!indexPath) return null
 
@@ -67,7 +169,56 @@ async function loadIndexFile(indexPath?: string): Promise<IndexEntry[] | null> {
     throw new Error('Index file must be a JSON array of chapters')
   }
 
-  return parsed as IndexEntry[]
+  return normalizeIndexEntries(parsed, 'Index file')
+}
+
+function parseIndexRanges(indexRanges?: string): IndexEntry[] | null {
+  if (typeof indexRanges === 'undefined') return null
+
+  const trimmed = indexRanges.trim()
+  if (!trimmed) {
+    throw new Error('Index ranges must not be empty.')
+  }
+
+  const parts = trimmed.split(',').map(part => part.trim())
+  const entries = parts.map((part, index) => {
+    if (!part) {
+      throw new Error(
+        `Index ranges segment ${index + 1} is empty. Use comma-separated "<start>-<end>" ranges.`,
+      )
+    }
+
+    const match = /^\s*(\d+)\s*-\s*(\d+)\s*$/.exec(part)
+    if (!match) {
+      throw new Error(
+        `Index ranges segment ${index + 1} must use "<start>-<end>" syntax.`,
+      )
+    }
+
+    return {
+      start: Number.parseInt(match[1], 10),
+      end: Number.parseInt(match[2], 10),
+    }
+  })
+
+  return validateIndexEntries(entries, 'Index ranges')
+}
+
+async function resolveIndexEntries(options: {
+  indexPath?: string
+  indexRanges?: string
+}): Promise<IndexEntry[] | null> {
+  const { indexPath, indexRanges } = options
+
+  if (indexPath && typeof indexRanges !== 'undefined') {
+    throw new Error('Use either indexPath or indexRanges, not both.')
+  }
+
+  if (typeof indexRanges !== 'undefined') {
+    return parseIndexRanges(indexRanges)
+  }
+
+  return loadIndexFile(indexPath)
 }
 
 function applyMinCharsFilter(
@@ -121,6 +272,7 @@ export async function convertFileFromPath(
     inputPath,
     type,
     indexPath,
+    indexRanges,
     startChapter,
     endChapter,
     minChars,
@@ -156,11 +308,11 @@ export async function convertFileFromPath(
       typeof endChapter !== 'undefined'
     ) {
       throw new Error(
-        'PDF extraction does not support chapter selection. Use --index for PDFs.',
+        'PDF extraction does not support chapter selection. Use --index or --index-ranges for PDFs.',
       )
     }
 
-    const parsedIndex = await loadIndexFile(indexPath)
+    const parsedIndex = await resolveIndexEntries({ indexPath, indexRanges })
     const pdfData = await parsePdfWithPdfParse(fileBuffer, Boolean(debug))
     const transformed = transformPdfParseResult(
       pdfData,

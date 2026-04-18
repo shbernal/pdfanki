@@ -54,22 +54,29 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
   - `--quiet` / `-q`: warnings and errors only.
   - `--no-color`: disable ANSI colors.
   - `--no-spinner`: disable loading animations and progress rendering.
-- `--index` expects a JSON array of chapter ranges for PDFs. Format:
+- `--index <path>` expects a JSON array of chapter ranges for PDFs. `title` is optional:
 
   ```json
   [
-    { "title": "Introduction", "start": 1, "end": 3 },
-    { "title": "Chapter 1", "start": 4, "end": 18 },
-    { "title": "Chapter 2", "start": 19, "end": 35 }
+    { "start": 1, "end": 3, "title": "Introduction" },
+    { "start": 4, "end": 18 },
+    { "start": 19, "end": 35, "title": "Chapter 2" }
   ]
   ```
 
+- `--index-ranges "<start>-<end>,<start>-<end>"` provides the same PDF section boundaries inline:
+
+  ```txt
+  --index-ranges "1-3,4-18,19-35"
+  ```
+
 - Pages are 1-based and inclusive; `start` ≤ `end`. Each entry maps to one output section.
+- Ranges must be in ascending order and must not overlap. Gaps are allowed.
 - `--start-chapter <num>` / `--end-chapter <num>` restrict EPUB extraction to a 1-based inclusive chapter range.
 - Generate a blank index template: `pdfanki index-template 8 --from-file book.pdf` (writes `./book.index.json`; omit `--from-file` to default to `./index.json`).
 - `--min-char <num>` filters out extracted sections with fewer than `<num>` characters.
 
-- PDFs only support filtering through `--index`. EPUB chapter filtering uses `--start-chapter` / `--end-chapter`.
+- PDFs only support filtering through `--index` or `--index-ranges`. EPUB chapter filtering uses `--start-chapter` / `--end-chapter`.
 
 ### JSON shape for `--from-json` / `--to-json`
 

@@ -52,16 +52,36 @@ function toKebabAlnum(value: string): string {
   return collapsed || 'deck'
 }
 
-function buildIndexTemplate(
-  count: number,
-): { title: string; start: number; end: number }[] {
-  const items = []
+type IndexTemplateEntry = {
+  start: number
+  end: number
+  title?: string
+}
+
+function buildIndexTemplate(count: number): IndexTemplateEntry[] {
+  const items: IndexTemplateEntry[] = []
   for (let i = 1; i <= count; i++) {
     const start = (i - 1) * 2 + 1
     const end = start + 1
-    items.push({ title: `Section ${i}`, start, end })
+    items.push({ start, end, title: `Section ${i}` })
   }
   return items
+}
+
+function formatIndexTemplate(entries: IndexTemplateEntry[]): string {
+  if (entries.length === 0) {
+    return '[]\n'
+  }
+
+  const lines = entries.map(entry => {
+    const parts = [`"start": ${entry.start}`, `"end": ${entry.end}`]
+    if (entry.title?.trim()) {
+      parts.push(`"title": ${JSON.stringify(entry.title)}`)
+    }
+    return `  { ${parts.join(', ')} }`
+  })
+
+  return `[\n${lines.join(',\n')}\n]\n`
 }
 
 function buildDeckMarkdown(deckTitle: string, body: string): string {
@@ -690,7 +710,7 @@ const cli = yargs(rawArgs)
           ui.spinner,
           'Creating index template...',
           async () => {
-            const payload = JSON.stringify(buildIndexTemplate(count), null, 2)
+            const payload = formatIndexTemplate(buildIndexTemplate(count))
             await fs.mkdir(dirname(outputPath), { recursive: true })
             await fs.writeFile(outputPath, payload, 'utf8')
           },
@@ -700,7 +720,7 @@ const cli = yargs(rawArgs)
           `Created index template with ${count} section(s) at ${outputPath}`,
         )
         ui.logger.info(
-          'Use --index <path> with PDFs to apply this chapter map.',
+          'Use --index <path> with PDFs, or --index-ranges "<start-end,...>" for quick inline ranges.',
         )
       } catch (error) {
         ui?.spinner.stop()
@@ -762,6 +782,11 @@ const cli = yargs(rawArgs)
             type: 'string',
             describe:
               'Path to a JSON index for PDF chapter separation (ignored for EPUB).',
+          })
+          .option('index-ranges', {
+            type: 'string',
+            describe:
+              'Inline PDF page ranges like "12-53,54-92,93-118" (ignored for EPUB).',
           })
           .option('start-chapter', {
             type: 'number',
@@ -879,6 +904,24 @@ const cli = yargs(rawArgs)
         const minChars = typeof minCharArg === 'number' ? minCharArg : undefined
         const startChapterArg = args.startChapter as number | undefined
         const endChapterArg = args.endChapter as number | undefined
+        const indexPath = normalizePathArg(args.index as string | undefined)
+        const indexRanges = normalizePathArg(
+          args.indexRanges as string | undefined,
+        )
+
+        if (
+          flagProvided(args.indexRanges) &&
+          typeof args.indexRanges === 'string' &&
+          !indexRanges
+        ) {
+          throw new Error('--index-ranges must not be empty.')
+        }
+
+        if (indexPath && indexRanges) {
+          throw new Error(
+            'Use --index <path> or --index-ranges "<start-end,...>", not both.',
+          )
+        }
 
         if (
           typeof startChapterArg !== 'undefined' &&
@@ -1054,7 +1097,8 @@ const cli = yargs(rawArgs)
           const options: ConvertFileOptions = {
             inputPath: fromFilePath,
             type: args.type as string | undefined,
-            indexPath: args.index as string | undefined,
+            indexPath,
+            indexRanges,
             startChapter: startChapterArg,
             endChapter: endChapterArg,
             minChars,
@@ -1070,7 +1114,7 @@ const cli = yargs(rawArgs)
             logger,
             sourcePath: fromFilePath,
             book: result.data,
-            indexProvided: Boolean(args.index),
+            indexProvided: Boolean(indexPath || indexRanges),
           })
         }
 

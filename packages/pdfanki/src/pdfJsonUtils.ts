@@ -187,13 +187,17 @@ function processWithIndex(pages, index) {
   const content = []
 
   index.forEach((chapter, chapterIndex) => {
+    const title =
+      typeof chapter.title === 'string' && chapter.title.trim().length > 0
+        ? chapter.title.trim()
+        : `Section ${chapterIndex + 1}`
     const startPage = chapter.start - 1 // Convert to 0-based index
     const endPage = chapter.end - 1 // Convert to 0-based index
 
     // Validate page range
     if (startPage < 0 || endPage >= pages.length || startPage > endPage) {
       console.warn(
-        `Skipping chapter "${chapter.title}": invalid page range ${chapter.start}-${chapter.end}`,
+        `Skipping chapter "${title}": invalid page range ${chapter.start}-${chapter.end}`,
       )
       return
     }
@@ -211,13 +215,13 @@ function processWithIndex(pages, index) {
     if (chapterText.trim().length > 0) {
       content.push({
         index: chapterIndex + 1,
-        title: chapter.title,
+        title,
         text: chapterText.trim(),
         pageRange: `${chapter.start}-${chapter.end}`,
         pageCount: endPage - startPage + 1,
       })
     } else {
-      console.warn(`Chapter "${chapter.title}" has no extractable text`)
+      console.warn(`Chapter "${title}" has no extractable text`)
     }
   })
 
@@ -232,12 +236,16 @@ function processWithIndexFromPageText(pageTexts, index) {
   const totalPages = pageTexts.length
 
   index.forEach((chapter, chapterIndex) => {
+    const title =
+      typeof chapter.title === 'string' && chapter.title.trim().length > 0
+        ? chapter.title.trim()
+        : `Section ${chapterIndex + 1}`
     const startPage = chapter.start - 1
     const endPage = chapter.end - 1
 
     if (startPage < 0 || endPage >= totalPages || startPage > endPage) {
       console.warn(
-        `Skipping chapter "${chapter.title}": invalid page range ${chapter.start}-${chapter.end}`,
+        `Skipping chapter "${title}": invalid page range ${chapter.start}-${chapter.end}`,
       )
       return
     }
@@ -253,13 +261,13 @@ function processWithIndexFromPageText(pageTexts, index) {
     if (chapterText.trim().length > 0) {
       content.push({
         index: chapterIndex + 1,
-        title: chapter.title,
+        title,
         text: chapterText.trim(),
         pageRange: `${chapter.start}-${chapter.end}`,
         pageCount: endPage - startPage + 1,
       })
     } else {
-      console.warn(`Chapter "${chapter.title}" has no extractable text`)
+      console.warn(`Chapter "${title}" has no extractable text`)
     }
   })
 

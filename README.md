@@ -68,17 +68,24 @@ Local fixtures
 - These files are gitignored so you can keep private or large source documents out of the repo.
 
 PDF index helpers
-- `--index-create-template`: Generate an `index.json` scaffold.
-- `--index-count`: Specify how many chapters to include in the template.
-- `--index` expects a JSON array of chapter ranges (1-based pages, inclusive):
+- `pdfanki index-template <count> [out]`: Generate an `index.json` scaffold.
+- `--index <path>` expects a JSON array of chapter ranges (1-based pages, inclusive). `title` is optional:
 
 ```json
 [
-  { "title": "Introduction", "start": 1, "end": 3 },
-  { "title": "Chapter 1", "start": 4, "end": 18 },
-  { "title": "Chapter 2", "start": 19, "end": 35 }
+  { "start": 1, "end": 3, "title": "Introduction" },
+  { "start": 4, "end": 18 },
+  { "start": 19, "end": 35, "title": "Chapter 2" }
 ]
 ```
+
+- `--index-ranges "<start>-<end>,<start>-<end>"` provides the same PDF section boundaries inline:
+
+```txt
+--index-ranges "1-3,4-18,19-35"
+```
+
+- Ranges must be in ascending order and must not overlap. Gaps are allowed.
 
 Minimal JSON shape
 Use the same structure for `--from-json` or when inspecting output from `--to-json`:
