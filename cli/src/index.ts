@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { promises as fs } from 'fs'
+import { tmpdir } from 'os'
 import { dirname, join, parse } from 'path'
 import {
   convertMarkdownToAnkiDeck,
@@ -8,7 +9,6 @@ import {
 import yargs, { type Argv } from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import {
-  bookJsonToPlainText,
   convertFileFromPath,
   generateFlashcards as generateFlashcardsFromServer,
   validateJsonStructure,
@@ -579,47 +579,1049 @@ async function handlePrintConfig(args: UiBuildArgs): Promise<void> {
   }
 }
 
+async function handleResetConfig(args: UiBuildArgs): Promise<void> {
+  let ui: CliUi | null = null
+  try {
+    ui = buildCliUi(args)
+    const paths = await runWithSpinner(
+      ui.spinner,
+      'Resetting configuration...',
+      async () => resetConfig(),
+    )
+    ui.logger.success(
+      `Config reset at ${paths.dir} (settings.json and prompts recreated).`,
+    )
+  } catch (error) {
+    ui?.spinner.stop()
+    ;(ui?.logger ?? createLogger({ level: 'info', useColor: false })).error(
+      `Failed to reset config: ${(error as Error).message ?? error}`,
+    )
+    process.exitCode = 1
+  }
+}
+
+type CliSettings = Awaited<ReturnType<typeof loadSettings>>
+type WorkflowSourceKind = 'pdf' | 'epub' | 'json' | 'md'
+type WorkflowTargetKind = 'json' | 'md' | 'anki'
+type StructuredSourceKind = Exclude<WorkflowSourceKind, 'md'>
+
+type WorkflowCommandArgs = UiBuildArgs & {
+  input?: unknown
+  out?: unknown
+  fullFidelity?: unknown
+  index?: unknown
+  indexRanges?: unknown
+  startChapter?: unknown
+  endChapter?: unknown
+  minChar?: unknown
+  provider?: unknown
+  prompt?: unknown
+  model?: unknown
+  deckTitle?: unknown
+  debug?: unknown
+  dryRun?: unknown
+}
+
+type StructuredSourceResult = {
+  data: BookJson
+  fileType: StructuredSourceKind
+  sourcePath: string
+}
+
+const PROVIDER_MODEL_HINTS: Record<SupportedProvider, RegExp> = {
+  gemini: /^gemini/i,
+  anthropic: /^claude/i,
+  openai: /^gpt/i,
+  deepseek: /^deepseek/i,
+  openrouter:
+    /^(?:openrouter\/)?[a-z0-9._-]+\/[a-z0-9._-]+(?:\/[a-z0-9._-]+)?$/i,
+}
+
+function normalizeRequiredInputPath(value: unknown): string {
+  const normalized = normalizePathArg(value)
+  if (!normalized) {
+    throw new Error('Provide an <input> path.')
+  }
+  return normalized
+}
+
+function normalizeIntegerOption(
+  value: unknown,
+  flagName: string,
+  minimum: number,
+): number | undefined {
+  if (typeof value === 'undefined') return undefined
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < minimum
+  ) {
+    const expectation =
+      minimum === 0 ? 'a non-negative integer' : 'a positive integer'
+    throw new Error(`${flagName} must be ${expectation}.`)
+  }
+  return value
+}
+
+function buildBasicExtractPayload(book: BookJson): {
+  content: { index: number; title?: string; text?: string }[]
+} {
+  return {
+    content: book.content.map(section => ({
+      index: section.index,
+      title: section.title,
+      text: section.text,
+    })),
+  }
+}
+
+function withSubcommandHelp<T>(y: Argv<T>): Argv<T> {
+  return y.updateStrings({ 'Commands:': 'Subcommands:' })
+}
+
+function withInputPositional<T>(y: Argv<T>, description: string): Argv<T> {
+  return y.positional('input', {
+    type: 'string',
+    describe: description,
+    demandOption: true,
+  })
+}
+
+function withOutputOption<T>(y: Argv<T>, description: string): Argv<T> {
+  return y.option('out', {
+    alias: 'o',
+    type: 'string',
+    describe: description,
+  })
+}
+
+function withDryRunOption<T>(y: Argv<T>): Argv<T> {
+  return y.option('dry-run', {
+    type: 'boolean',
+    default: false,
+    describe:
+      'Run normally but skip writing the requested output and failure artifact files.',
+  })
+}
+
+function withDeckTitleOption<T>(y: Argv<T>): Argv<T> {
+  return y.option('deck-title', {
+    alias: 'd',
+    type: 'string',
+    describe: 'Anki deck title. Defaults to the input filename or markdown H1.',
+  })
+}
+
+function withDebugOption<T>(y: Argv<T>): Argv<T> {
+  return y.option('debug', {
+    type: 'boolean',
+    default: false,
+    describe: 'Enable verbose PDF parser warnings (pdf.js verbosity).',
+  })
+}
+
+function withPdfSourceOptions<T>(y: Argv<T>): Argv<T> {
+  return y
+    .option('index', {
+      type: 'string',
+      describe: 'Path to a JSON index for PDF chapter separation.',
+    })
+    .option('index-ranges', {
+      type: 'string',
+      describe: 'Inline PDF page ranges like "12-53,54-92,93-118".',
+    })
+}
+
+function withEpubSourceOptions<T>(y: Argv<T>): Argv<T> {
+  return y
+    .option('start-chapter', {
+      type: 'number',
+      describe: 'First EPUB chapter to extract (1-based, inclusive).',
+    })
+    .option('end-chapter', {
+      type: 'number',
+      describe: 'Last EPUB chapter to extract (1-based, inclusive).',
+    })
+    .option('min-char', {
+      type: 'number',
+      describe: 'Filter out sections with fewer than this many characters.',
+    })
+}
+
+function withGenerationOptions<T>(y: Argv<T>): Argv<T> {
+  return y
+    .option('provider', {
+      type: 'string',
+      choices: ['gemini', 'anthropic', 'openai', 'deepseek', 'openrouter'],
+      describe:
+        'AI provider (expects API key in PROVIDER_API_KEY env var). Defaults to settings.json.',
+    })
+    .option('prompt', {
+      alias: 'p',
+      type: 'string',
+      default: 'default',
+      describe: 'Prompt to load, e.g. "default" -> prompts/default.md.',
+    })
+    .option('model', {
+      alias: 'm',
+      type: 'string',
+      describe: 'Model name for the chosen provider.',
+    })
+}
+
+async function handleIndexTemplate(
+  args: UiBuildArgs & {
+    count?: unknown
+    out?: unknown
+    fromFile?: unknown
+  },
+): Promise<void> {
+  let ui: CliUi | null = null
+  try {
+    ui = buildCliUi(args)
+    const count = args.count as number
+    if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) {
+      throw new Error(
+        'Provide a positive integer for <count> when creating an index template.',
+      )
+    }
+
+    const fromFilePath = normalizePathArg(args.fromFile)
+    const outputPath = resolveIndexTemplatePath(
+      normalizePathArg(args.out),
+      fromFilePath,
+    )
+
+    await runWithSpinner(ui.spinner, 'Creating index template...', async () => {
+      const payload = formatIndexTemplate(buildIndexTemplate(count))
+      await fs.mkdir(dirname(outputPath), { recursive: true })
+      await fs.writeFile(outputPath, payload, 'utf8')
+    })
+
+    ui.logger.success(
+      `Created index template with ${count} section(s) at ${outputPath}`,
+    )
+    ui.logger.info(
+      'Use --index <path> with PDF conversions, or --index-ranges "<start-end,...>" for quick inline ranges.',
+    )
+  } catch (error) {
+    ui?.spinner.stop()
+    ;(ui?.logger ?? createLogger({ level: 'info', useColor: false })).error(
+      `Failed to create index template: ${(error as Error).message}`,
+    )
+    process.exitCode = 1
+  }
+}
+
+async function loadCliSettings(ui: CliUi): Promise<CliSettings> {
+  return runWithSpinner(ui.spinner, 'Loading configuration...', async () => {
+    await ensureConfig()
+    return loadSettings()
+  })
+}
+
+async function loadStructuredSource(options: {
+  sourceKind: StructuredSourceKind
+  inputPath: string
+  ui: CliUi
+  settings: CliSettings
+  indexPath?: string
+  indexRanges?: string
+  startChapter?: number
+  endChapter?: number
+  minChars?: number
+  debug: boolean
+  fullFidelity: boolean
+}): Promise<StructuredSourceResult> {
+  const {
+    sourceKind,
+    inputPath,
+    ui,
+    settings,
+    indexPath,
+    indexRanges,
+    startChapter,
+    endChapter,
+    minChars,
+    debug,
+    fullFidelity,
+  } = options
+
+  if (sourceKind === 'json') {
+    return runWithSpinner(ui.spinner, 'Loading extracted JSON...', async () => {
+      const raw = await fs.readFile(inputPath, 'utf8')
+      const parsed = JSON.parse(raw)
+      const validation = validateJsonStructure(parsed, {
+        requireMetadata: false,
+        requireTitles: false,
+      })
+      if (!validation.isValid) {
+        throw new Error(`Invalid JSON input: ${validation.error}`)
+      }
+
+      return {
+        data: parsed,
+        fileType: 'json',
+        sourcePath: inputPath,
+      }
+    })
+  }
+
+  const convertOptions: ConvertFileOptions = {
+    inputPath,
+    type: sourceKind,
+    indexPath,
+    indexRanges,
+    startChapter,
+    endChapter,
+    minChars,
+    epubFilters: fullFidelity ? { titles: [] } : settings.epubFilters,
+    debug,
+  }
+
+  return convertFileFromPath(convertOptions)
+}
+
+async function buildAnkiPackageFromMarkdownPayload(options: {
+  markdownPayload: string
+  outputPath: string
+  deckTitle: string
+}): Promise<void> {
+  const { markdownPayload, outputPath, deckTitle } = options
+  const tempDir = await fs.mkdtemp(join(tmpdir(), 'pdfanki-anki-'))
+  const markdownPath = join(tempDir, 'deck.md')
+
+  try {
+    await fs.writeFile(markdownPath, markdownPayload, 'utf8')
+    const deckConversionOptions: ConvertMarkdownToAnkiDeckOptions = {
+      target: outputPath,
+      deckName: deckTitle,
+    }
+    await convertMarkdownToAnkiDeck(markdownPath, deckConversionOptions)
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true })
+  }
+}
+
+async function runWorkflowCommand(
+  sourceKind: WorkflowSourceKind,
+  targetKind: WorkflowTargetKind,
+  args: WorkflowCommandArgs,
+): Promise<void> {
+  let ui: CliUi | null = null
+  let progressStarted = false
+
+  try {
+    ui = buildCliUi(args)
+    const { logger, spinner, progress } = ui
+    const settings = await loadCliSettings(ui)
+    const inputPath = normalizeRequiredInputPath(args.input)
+    const outputBaseName = toKebabAlnum(parse(inputPath).name || 'deck')
+    const outputExtension =
+      targetKind === 'json' ? '.json' : targetKind === 'md' ? '.md' : '.apkg'
+    const explicitOutputPath = normalizePathArg(args.out)
+    const outputPath = resolveOutputPath(
+      explicitOutputPath,
+      outputBaseName,
+      outputExtension,
+    )
+    const usedDefaultOutputPath = !explicitOutputPath
+    const deckTitleArg = normalizePathArg(args.deckTitle)
+    const dryRun = toBool(args.dryRun, false)
+    const debug = toBool(args.debug, false)
+    const fullFidelity = toBool(args.fullFidelity, false)
+    const artifactBaseName = parse(outputPath).name || outputBaseName
+
+    const indexPath = normalizePathArg(args.index)
+    const indexRanges = normalizePathArg(args.indexRanges)
+    if (
+      flagProvided(args.indexRanges) &&
+      typeof args.indexRanges === 'string' &&
+      !indexRanges
+    ) {
+      throw new Error('--index-ranges must not be empty.')
+    }
+    if (indexPath && indexRanges) {
+      throw new Error(
+        'Use --index <path> or --index-ranges "<start-end,...>", not both.',
+      )
+    }
+
+    const minChars = normalizeIntegerOption(args.minChar, '--min-char', 0)
+    const startChapter = normalizeIntegerOption(
+      args.startChapter,
+      '--start-chapter',
+      1,
+    )
+    const endChapter = normalizeIntegerOption(
+      args.endChapter,
+      '--end-chapter',
+      1,
+    )
+
+    if (
+      typeof startChapter === 'number' &&
+      typeof endChapter === 'number' &&
+      startChapter > endChapter
+    ) {
+      throw new Error(
+        '--start-chapter must be less than or equal to --end-chapter.',
+      )
+    }
+
+    if (sourceKind === 'md') {
+      const markdownSource = await runWithSpinner(
+        spinner,
+        'Reading markdown deck...',
+        async () => fs.readFile(inputPath, 'utf8'),
+      )
+
+      const headingMatch = markdownSource.match(/^#\s+(.+)\s*$/m)
+      const deckTitle =
+        deckTitleArg && deckTitleArg.length > 0
+          ? deckTitleArg
+          : headingMatch?.[1]?.trim() || parse(inputPath).name
+
+      if (dryRun) {
+        logger.info('- dry run: Anki package creation skipped')
+        logger.info(`- would read markdown from ${inputPath}`)
+        logger.info(`- would build Anki package at ${outputPath}`)
+        if (usedDefaultOutputPath) {
+          logger.info('Output path defaulted to current working directory.')
+        }
+        logger.info(`Deck title: ${deckTitle}`)
+        return
+      }
+
+      await runWithSpinner(spinner, 'Building Anki deck...', async () => {
+        await fs.mkdir(dirname(outputPath), { recursive: true })
+        const deckConversionOptions: ConvertMarkdownToAnkiDeckOptions = {
+          target: outputPath,
+          deckName: deckTitle,
+        }
+        await convertMarkdownToAnkiDeck(inputPath, deckConversionOptions)
+      })
+
+      logger.success(
+        `Generated Anki deck from markdown ${inputPath} -> ${outputPath}`,
+      )
+      if (usedDefaultOutputPath) {
+        logger.info('Output path defaulted to current working directory.')
+      }
+      logger.info(`Deck title: ${deckTitle}`)
+      return
+    }
+
+    const structured = await loadStructuredSource({
+      sourceKind,
+      inputPath,
+      ui,
+      settings,
+      indexPath,
+      indexRanges,
+      startChapter,
+      endChapter,
+      minChars,
+      debug,
+      fullFidelity: targetKind === 'json' && fullFidelity,
+    })
+
+    if (targetKind === 'json') {
+      if (structured.fileType === 'pdf') {
+        logPdfExtractionSummary({
+          logger,
+          sourcePath: inputPath,
+          book: structured.data,
+          indexProvided: Boolean(indexPath || indexRanges),
+        })
+      }
+
+      const payload = JSON.stringify(
+        fullFidelity
+          ? structured.data
+          : buildBasicExtractPayload(structured.data),
+        null,
+        2,
+      )
+
+      if (dryRun) {
+        logger.info('- dry run: extracted JSON not written to disk')
+        logger.info(`- would write JSON to ${outputPath}`)
+        if (usedDefaultOutputPath) {
+          logger.info('Output path defaulted to current working directory.')
+        }
+        return
+      }
+
+      await runWithSpinner(spinner, 'Writing extracted JSON...', async () => {
+        await fs.mkdir(dirname(outputPath), { recursive: true })
+        await fs.writeFile(outputPath, payload, 'utf8')
+      })
+
+      logger.success(`Saved extracted JSON to ${outputPath}`)
+      if (usedDefaultOutputPath) {
+        logger.info('Output path defaulted to current working directory.')
+      }
+      return
+    }
+
+    const provider =
+      (args.provider as SupportedProvider | undefined) ??
+      settings.defaultProvider
+    const providerSettings = settings.providers[provider]
+    const defaultModel =
+      providerSettings?.defaultModel ??
+      settings.providers[settings.defaultProvider]?.defaultModel
+    const model = (args.model as string | undefined) ?? defaultModel
+    const apiKeyLookup = readProviderApiKey(provider)
+
+    if (!model) {
+      throw new Error(
+        'Model is required when invoking a provider. Set it via --model or settings.json.',
+      )
+    }
+
+    if (!apiKeyLookup.apiKey) {
+      throw new Error(
+        `Missing API key for provider "${provider}". Set ${apiKeyLookup.envVar} in your environment.`,
+      )
+    }
+
+    const hint = PROVIDER_MODEL_HINTS[provider]
+    if (model && hint && !hint.test(model)) {
+      logger.warn(`Model "${model}" may not belong to provider "${provider}".`)
+    }
+
+    logger.debug(`Provider: ${provider}`)
+    logger.debug(`Model: ${model}`)
+
+    const prompt = await runWithSpinner(
+      spinner,
+      'Loading prompt...',
+      async () => loadPrompt(args.prompt as string | undefined),
+    )
+
+    const deckTitle =
+      deckTitleArg && deckTitleArg.length > 0
+        ? deckTitleArg
+        : parse(inputPath).name || outputBaseName
+
+    const sections = structured.data.content ?? []
+    if (sections.length === 0) {
+      throw new Error('No content sections found to generate flashcards.')
+    }
+
+    logger.info(
+      `Generating flashcards in ${sections.length} section(s) (sequential).`,
+    )
+
+    const generationStart = Date.now()
+    const totalSections = sections.length
+    const aggregatedCards: Flashcard[] = []
+    const showPerSectionLogs = logger.isDebugEnabled || !ui.progressEnabled
+
+    if (ui.progressEnabled) {
+      progress.start(totalSections, 'Starting generation')
+      progressStarted = true
+    }
+
+    for (const [position, section] of sections.entries()) {
+      const sectionTitle = section.title?.trim()
+      const sectionText = section.text?.trim()
+      const sectionStart = Date.now()
+      const sectionPrefix = `Section ${position + 1}/${totalSections}`
+      const sectionLabel = sectionTitle
+        ? `${sectionPrefix} - ${sectionTitle}`
+        : sectionPrefix
+      const sectionProgressName = sectionTitle || sectionPrefix
+
+      if (showPerSectionLogs) {
+        logger.info(`-> ${sectionLabel}`)
+      }
+
+      if (!sectionText) {
+        if (progressStarted) {
+          progress.clear()
+        }
+        throw new Error(
+          `Section ${position + 1} has no text to process for flashcards.`,
+        )
+      }
+
+      let rawResponse: string | null = null
+      try {
+        let parsedCards: Flashcard[] | null = null
+
+        for (
+          let attempt = 1;
+          attempt <= MAX_MARKDOWN_VALIDATION_ATTEMPTS;
+          attempt++
+        ) {
+          const retrySuffix =
+            attempt > 1
+              ? ` (retry ${attempt}/${MAX_MARKDOWN_VALIDATION_ATTEMPTS})`
+              : ''
+          const response = progressStarted
+            ? await runWithProgressHeartbeat({
+                progress,
+                current: position,
+                label: `${sectionProgressName} | Model reasoning...${retrySuffix}`,
+                intervalMs: 100,
+                animateSpinner: true,
+                action: () =>
+                  generateFlashcards({
+                    provider,
+                    model,
+                    apiKey: apiKeyLookup.apiKey!,
+                    prompt: prompt.contents,
+                    content: sectionText,
+                  }),
+              })
+            : await generateFlashcards({
+                provider,
+                model,
+                apiKey: apiKeyLookup.apiKey!,
+                prompt: prompt.contents,
+                content: sectionText,
+              })
+
+          rawResponse = response
+
+          try {
+            parsedCards = parseFlashcardMarkdown(response)
+            break
+          } catch (validationError) {
+            if (!(validationError instanceof Error)) {
+              throw validationError
+            }
+
+            if (attempt < MAX_MARKDOWN_VALIDATION_ATTEMPTS) {
+              if (showPerSectionLogs) {
+                logger.warn(
+                  `   markdown validation failed on attempt ${attempt}/${MAX_MARKDOWN_VALIDATION_ATTEMPTS}; retrying model call for the same section.`,
+                )
+                logger.warn(validationError.message)
+              }
+              continue
+            }
+
+            throw new Error(
+              `Markdown formatting remained invalid after ${MAX_MARKDOWN_VALIDATION_ATTEMPTS} attempts.\n${validationError.message}`,
+            )
+          }
+        }
+
+        if (!parsedCards) {
+          throw new Error(
+            `No valid markdown response parsed after ${MAX_MARKDOWN_VALIDATION_ATTEMPTS} attempts.`,
+          )
+        }
+
+        aggregatedCards.push(...parsedCards)
+        const duration = formatDuration(Date.now() - sectionStart)
+
+        if (showPerSectionLogs) {
+          logger.info(
+            `   status: success | flashcards: ${parsedCards.length} | time: ${duration}`,
+          )
+        }
+
+        if (progressStarted) {
+          progress.increment(sectionLabel)
+        }
+      } catch (error) {
+        if (progressStarted) {
+          progress.clear()
+        }
+
+        const duration = formatDuration(Date.now() - sectionStart)
+        logger.error(
+          `${sectionLabel} failed | flashcards: 0 | time: ${duration}`,
+        )
+
+        if (dryRun) {
+          logger.warn(
+            'Dry run enabled; partial markdown and failed section artifacts were not written.',
+          )
+        } else {
+          const artifactDir = dirname(outputPath)
+          const partialPath = join(
+            artifactDir,
+            `${artifactBaseName}-partial.md`,
+          )
+          const failedSectionPath = join(
+            artifactDir,
+            `${artifactBaseName}-failed-section-${position + 1}.md`,
+          )
+          const partialBody =
+            aggregatedCards.length > 0 ? renderFlashcards(aggregatedCards) : ''
+          const partialPayload = buildDeckMarkdown(deckTitle, partialBody)
+          await fs.mkdir(artifactDir, { recursive: true })
+          await fs.writeFile(partialPath, partialPayload, 'utf8')
+
+          const failedPayload =
+            rawResponse && rawResponse.trim().length > 0
+              ? rawResponse
+              : 'No model response captured for this section.'
+          await fs.writeFile(failedSectionPath, failedPayload, 'utf8')
+
+          logger.warn(`Partial markdown saved to ${partialPath}`)
+          logger.warn(
+            `Failed section output saved to ${failedSectionPath} (${sectionLabel})`,
+          )
+        }
+
+        throw new Error(
+          `Section ${position + 1} failed: ${(error as Error).message}`,
+        )
+      }
+    }
+
+    if (progressStarted) {
+      progress.stop()
+      progressStarted = false
+    }
+
+    if (aggregatedCards.length === 0) {
+      throw new Error(
+        'Flashcard generation produced no cards. Check the prompt or input content.',
+      )
+    }
+
+    const totalDuration = formatDuration(Date.now() - generationStart)
+    logger.success(
+      `Generated ${aggregatedCards.length} flashcards in ${totalDuration}.`,
+    )
+
+    const flashcards = renderFlashcards(aggregatedCards)
+    const markdownPayload = buildDeckMarkdown(deckTitle, flashcards)
+
+    if (dryRun) {
+      if (targetKind === 'md') {
+        logger.info('- dry run: markdown deck not written to disk')
+        logger.info(`- would write markdown to ${outputPath}`)
+      } else {
+        logger.info('- dry run: Anki package creation skipped')
+        logger.info(`- would build Anki package at ${outputPath}`)
+      }
+      if (usedDefaultOutputPath) {
+        logger.info('Output path defaulted to current working directory.')
+      }
+      logger.info(`Using prompt "${prompt.name}" from ${prompt.path}`)
+      return
+    }
+
+    await fs.mkdir(dirname(outputPath), { recursive: true })
+
+    if (targetKind === 'md') {
+      await runWithSpinner(spinner, 'Writing markdown deck...', async () => {
+        await fs.writeFile(outputPath, markdownPayload, 'utf8')
+      })
+
+      logger.success(
+        `Generated markdown flashcards from ${inputPath} (${structured.fileType.toUpperCase()}) -> ${outputPath}`,
+      )
+    } else {
+      await runWithSpinner(spinner, 'Building Anki package...', async () => {
+        await buildAnkiPackageFromMarkdownPayload({
+          markdownPayload,
+          outputPath,
+          deckTitle,
+        })
+      })
+
+      logger.success(
+        `Generated Anki deck from ${inputPath} (${structured.fileType.toUpperCase()}) -> ${outputPath}`,
+      )
+    }
+
+    if (usedDefaultOutputPath) {
+      logger.info('Output path defaulted to current working directory.')
+    }
+    logger.info(`Using prompt "${prompt.name}" from ${prompt.path}`)
+  } catch (error) {
+    ui?.spinner.stop()
+    if (progressStarted) {
+      ui?.progress.clear()
+    }
+    ;(ui?.logger ?? createLogger({ level: 'info', useColor: false })).error(
+      `Conversion failed: ${(error as Error).message}`,
+    )
+    process.exitCode = 1
+  }
+}
+
 const rawArgs = hideBin(process.argv)
 
 const cli = yargs(rawArgs)
   .scriptName('pdfanki')
-  .usage('$0 [options]')
+  .usage('Usage:\n  $0 <command> <subcommand> [flags]')
+  .updateStrings({ 'Commands:': 'Core commands:' })
   .command(
-    'reset-config',
-    'Remove and recreate the pdfanki config directory with defaults.',
-    y => withUiOptions(y),
-    async args => {
-      let ui: CliUi | null = null
-      try {
-        ui = buildCliUi(args)
-        const paths = await runWithSpinner(
-          ui.spinner,
-          'Resetting configuration...',
-          async () => resetConfig(),
+    'pdf',
+    'Convert from PDF inputs.',
+    y =>
+      withSubcommandHelp(y)
+        .command(
+          'json <input>',
+          'Extract structured JSON from a PDF.',
+          commandY =>
+            withUiOptions(
+              withDryRunOption(
+                withOutputOption(
+                  withPdfSourceOptions(
+                    withDebugOption(
+                      withInputPositional(commandY, 'Path to the source PDF.'),
+                    ),
+                  ),
+                  'Output path for extracted JSON. Defaults to ./<input>.json.',
+                ),
+              ).option('full-fidelity', {
+                type: 'boolean',
+                default: false,
+                describe:
+                  'Write full-fidelity extraction JSON instead of the minimal section-only shape.',
+              }),
+            ),
+          async args => runWorkflowCommand('pdf', 'json', args),
         )
-        ui.logger.success(
-          `Config reset at ${paths.dir} (settings.json and prompts recreated).`,
+        .command(
+          'md <input>',
+          'Generate markdown flashcards directly from a PDF.',
+          commandY =>
+            withUiOptions(
+              withDryRunOption(
+                withDeckTitleOption(
+                  withGenerationOptions(
+                    withOutputOption(
+                      withPdfSourceOptions(
+                        withDebugOption(
+                          withInputPositional(
+                            commandY,
+                            'Path to the source PDF.',
+                          ),
+                        ),
+                      ),
+                      'Output path for markdown flashcards. Defaults to ./<input>.md.',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          async args => runWorkflowCommand('pdf', 'md', args),
         )
-      } catch (error) {
-        ui?.spinner.stop()
-        ;(ui?.logger ?? createLogger({ level: 'info', useColor: false })).error(
-          `Failed to reset config: ${(error as Error).message ?? error}`,
+        .command(
+          'anki <input>',
+          'Generate an Anki package directly from a PDF.',
+          commandY =>
+            withUiOptions(
+              withDryRunOption(
+                withDeckTitleOption(
+                  withGenerationOptions(
+                    withOutputOption(
+                      withPdfSourceOptions(
+                        withDebugOption(
+                          withInputPositional(
+                            commandY,
+                            'Path to the source PDF.',
+                          ),
+                        ),
+                      ),
+                      'Output path for the Anki package. Defaults to ./<input>.apkg.',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          async args => runWorkflowCommand('pdf', 'anki', args),
         )
-        process.exitCode = 1
-      }
-    },
+        .demandCommand(1, 'Choose a pdf subcommand.'),
+    async () => {},
+  )
+  .command(
+    'epub',
+    'Convert from EPUB inputs.',
+    y =>
+      withSubcommandHelp(y)
+        .command(
+          'json <input>',
+          'Extract structured JSON from an EPUB.',
+          commandY =>
+            withUiOptions(
+              withDryRunOption(
+                withOutputOption(
+                  withEpubSourceOptions(
+                    withDebugOption(
+                      withInputPositional(commandY, 'Path to the source EPUB.'),
+                    ),
+                  ),
+                  'Output path for extracted JSON. Defaults to ./<input>.json.',
+                ),
+              ).option('full-fidelity', {
+                type: 'boolean',
+                default: false,
+                describe:
+                  'Write full-fidelity JSON and disable configured EPUB title filtering.',
+              }),
+            ),
+          async args => runWorkflowCommand('epub', 'json', args),
+        )
+        .command(
+          'md <input>',
+          'Generate markdown flashcards directly from an EPUB.',
+          commandY =>
+            withUiOptions(
+              withDryRunOption(
+                withDeckTitleOption(
+                  withGenerationOptions(
+                    withOutputOption(
+                      withEpubSourceOptions(
+                        withDebugOption(
+                          withInputPositional(
+                            commandY,
+                            'Path to the source EPUB.',
+                          ),
+                        ),
+                      ),
+                      'Output path for markdown flashcards. Defaults to ./<input>.md.',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          async args => runWorkflowCommand('epub', 'md', args),
+        )
+        .command(
+          'anki <input>',
+          'Generate an Anki package directly from an EPUB.',
+          commandY =>
+            withUiOptions(
+              withDryRunOption(
+                withDeckTitleOption(
+                  withGenerationOptions(
+                    withOutputOption(
+                      withEpubSourceOptions(
+                        withDebugOption(
+                          withInputPositional(
+                            commandY,
+                            'Path to the source EPUB.',
+                          ),
+                        ),
+                      ),
+                      'Output path for the Anki package. Defaults to ./<input>.apkg.',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          async args => runWorkflowCommand('epub', 'anki', args),
+        )
+        .demandCommand(1, 'Choose an epub subcommand.'),
+    async () => {},
+  )
+  .command(
+    'json',
+    'Convert from extracted JSON inputs.',
+    y =>
+      withSubcommandHelp(y)
+        .command(
+          'md <input>',
+          'Generate markdown flashcards from extracted JSON.',
+          commandY =>
+            withUiOptions(
+              withDryRunOption(
+                withDeckTitleOption(
+                  withGenerationOptions(
+                    withOutputOption(
+                      withInputPositional(
+                        commandY,
+                        'Path to the extracted JSON file.',
+                      ),
+                      'Output path for markdown flashcards. Defaults to ./<input>.md.',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          async args => runWorkflowCommand('json', 'md', args),
+        )
+        .command(
+          'anki <input>',
+          'Generate an Anki package from extracted JSON.',
+          commandY =>
+            withUiOptions(
+              withDryRunOption(
+                withDeckTitleOption(
+                  withGenerationOptions(
+                    withOutputOption(
+                      withInputPositional(
+                        commandY,
+                        'Path to the extracted JSON file.',
+                      ),
+                      'Output path for the Anki package. Defaults to ./<input>.apkg.',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          async args => runWorkflowCommand('json', 'anki', args),
+        )
+        .demandCommand(1, 'Choose a json subcommand.'),
+    async () => {},
+  )
+  .command(
+    'md',
+    'Convert from markdown flashcard inputs.',
+    y =>
+      withSubcommandHelp(y)
+        .command(
+          'anki <input>',
+          'Build an Anki package from markdown flashcards.',
+          commandY =>
+            withUiOptions(
+              withDryRunOption(
+                withDeckTitleOption(
+                  withOutputOption(
+                    withInputPositional(
+                      commandY,
+                      'Path to the markdown flashcard file.',
+                    ),
+                    'Output path for the Anki package. Defaults to ./<input>.apkg.',
+                  ),
+                ),
+              ),
+            ),
+          async args => runWorkflowCommand('md', 'anki', args),
+        )
+        .demandCommand(1, 'Choose an md subcommand.'),
+    async () => {},
   )
   .command(
     'config',
-    'Print the current settings.json configuration to stdout.',
-    y => withUiOptions(y),
+    'Manage pdfanki configuration.',
+    y =>
+      withSubcommandHelp(withUiOptions(y))
+        .command(
+          'reset',
+          'Remove and recreate the pdfanki config directory with defaults.',
+          commandY => withUiOptions(commandY),
+          async args => handleResetConfig(args),
+        )
+        .middleware(argv => {
+          if (argv._.length > 1 && argv._[1] !== 'reset') {
+            throw new Error(
+              `Unknown config subcommand "${String(argv._[1])}". Try "pdfanki config --help".`,
+            )
+          }
+        }),
     async args => handlePrintConfig(args),
   )
   .command(
-    'prompts <subcommand>',
-    'List and install local or remote prompts.',
+    'prompts',
+    'Manage local and remote prompts.',
     y =>
-      y
+      withSubcommandHelp(y)
         .command(
           'list',
           'List prompt names available in the local pdfanki prompts directory.',
@@ -655,6 +1657,45 @@ const cli = yargs(rawArgs)
     async () => {},
   )
   .command(
+    'index',
+    'Work with PDF index templates and helpers.',
+    y =>
+      withSubcommandHelp(y)
+        .command(
+          'template <count> [out]',
+          'Generate a blank JSON index template.',
+          commandY =>
+            withUiOptions(
+              commandY
+                .positional('count', {
+                  type: 'number',
+                  describe: 'Number of sections in the template.',
+                  demandOption: true,
+                })
+                .positional('out', {
+                  type: 'string',
+                  describe:
+                    'Output path (directory or .json). Defaults to ./index.json or ./<input>.index.json when --from-file is provided.',
+                })
+                .option('from-file', {
+                  alias: 'f',
+                  type: 'string',
+                  describe:
+                    'Optional input PDF used to derive the default output name (<input>.index.json).',
+                }),
+            ),
+          async args => handleIndexTemplate(args),
+        )
+        .demandCommand(1, 'Choose an index subcommand.'),
+    async () => {},
+  )
+  .command(
+    'reset-config',
+    false,
+    y => withUiOptions(y),
+    async args => handleResetConfig(args),
+  )
+  .command(
     'list-prompts',
     false,
     y => withUiOptions(y),
@@ -662,7 +1703,7 @@ const cli = yargs(rawArgs)
   )
   .command(
     'index-template <count> [out]',
-    'Generate a blank index with <count> sections and exit.',
+    false,
     y =>
       withUiOptions(
         y
@@ -683,789 +1724,7 @@ const cli = yargs(rawArgs)
               'Optional input PDF used to derive the default output name (<input>.index.json).',
           }),
       ),
-    async args => {
-      let ui: CliUi | null = null
-      try {
-        ui = buildCliUi(args)
-        const count = args.count as number
-        if (
-          typeof count !== 'number' ||
-          !Number.isInteger(count) ||
-          count <= 0
-        ) {
-          throw new Error(
-            'Provide a positive integer for <count> when creating an index template.',
-          )
-        }
-
-        const fromFilePath = normalizePathArg(
-          args.fromFile as string | undefined,
-        )
-        const outputPath = resolveIndexTemplatePath(
-          normalizePathArg(args.out as string | undefined),
-          fromFilePath,
-        )
-
-        await runWithSpinner(
-          ui.spinner,
-          'Creating index template...',
-          async () => {
-            const payload = formatIndexTemplate(buildIndexTemplate(count))
-            await fs.mkdir(dirname(outputPath), { recursive: true })
-            await fs.writeFile(outputPath, payload, 'utf8')
-          },
-        )
-
-        ui.logger.success(
-          `Created index template with ${count} section(s) at ${outputPath}`,
-        )
-        ui.logger.info(
-          'Use --index <path> with PDFs, or --index-ranges "<start-end,...>" for quick inline ranges.',
-        )
-      } catch (error) {
-        ui?.spinner.stop()
-        ;(ui?.logger ?? createLogger({ level: 'info', useColor: false })).error(
-          `Failed to create index template: ${(error as Error).message}`,
-        )
-        process.exitCode = 1
-      }
-    },
-  )
-  .command(
-    '$0',
-    'Convert a PDF or EPUB to flashcards',
-    y =>
-      withUiOptions(
-        y
-          .option('from-file', {
-            alias: 'f',
-            type: 'string',
-            describe: 'Path to pdf/epub file',
-          })
-          .option('from-json', {
-            type: 'string',
-            describe:
-              'Path to a JSON file (matching pdfanki extract shape) to skip PDF/EPUB parsing.',
-          })
-          .option('from-md', {
-            type: 'string',
-            describe:
-              'Path to an existing markdown deck to convert to an Anki package.',
-          })
-          .option('to-json', {
-            type: 'string',
-            describe:
-              'Write a minimal JSON (index/title/text only) to a path (defaults to ./<input>.json) and stop (no model call).',
-          })
-          .option('to-json-verbose', {
-            type: 'string',
-            describe:
-              'Write a full-fidelity JSON (no metadata/content pruning, no EPUB regex filtering) to a path (defaults to ./<input>.json) and stop (no model call).',
-          })
-          .option('to-md', {
-            type: 'string',
-            describe:
-              'Generate the markdown deck (path optional, defaults to ./<input>.md). Skips Anki unless --to-anki is also set.',
-          })
-          .option('to-anki', {
-            type: 'string',
-            describe:
-              'Generate an Anki package (path optional, defaults to ./<input>.apkg). This is the default export if none is specified.',
-          })
-          .option('type', {
-            alias: 't',
-            type: 'string',
-            choices: ['pdf', 'epub'],
-            describe: 'Optional file type. Inferred from extension if omitted.',
-          })
-          .option('index', {
-            type: 'string',
-            describe:
-              'Path to a JSON index for PDF chapter separation (ignored for EPUB).',
-          })
-          .option('index-ranges', {
-            type: 'string',
-            describe:
-              'Inline PDF page ranges like "12-53,54-92,93-118" (ignored for EPUB).',
-          })
-          .option('start-chapter', {
-            type: 'number',
-            describe:
-              'First EPUB chapter to extract (1-based, inclusive). Not supported for PDFs.',
-          })
-          .option('end-chapter', {
-            type: 'number',
-            describe:
-              'Last EPUB chapter to extract (1-based, inclusive). Not supported for PDFs.',
-          })
-          .option('min-char', {
-            type: 'number',
-            describe:
-              'Filter out sections with fewer than this many characters.',
-          })
-          .option('provider', {
-            type: 'string',
-            choices: [
-              'gemini',
-              'anthropic',
-              'openai',
-              'deepseek',
-              'openrouter',
-            ],
-            describe:
-              'AI provider (expects API key in PROVIDER_API_KEY env var). Defaults to settings.json.',
-          })
-          .option('prompt', {
-            alias: 'p',
-            type: 'string',
-            describe: 'Prompt to load, e.g. "default" -> prompts/default.md.',
-            default: 'default',
-          })
-          .option('model', {
-            alias: 'm',
-            type: 'string',
-            describe: 'Model name for the chosen provider.',
-          })
-          .option('deck-title', {
-            alias: 'd',
-            type: 'string',
-            describe: 'Anki Deck title. Defaults to the input filename.',
-          })
-          .option('debug', {
-            type: 'boolean',
-            default: false,
-            describe: 'Enable verbose PDF parser warnings (pdf.js verbosity).',
-          })
-          .option('dry-run', {
-            type: 'boolean',
-            default: false,
-            describe:
-              'Run normally but skip writing JSON, markdown, .apkg, and failure artifact files.',
-          }),
-      ),
-    async args => {
-      const ui = buildCliUi(args)
-      const { logger, spinner, progress } = ui
-      let progressStarted = false
-
-      try {
-        const settings = await runWithSpinner(
-          spinner,
-          'Loading configuration...',
-          async () => {
-            await ensureConfig()
-            return loadSettings()
-          },
-        )
-
-        const fromJsonPath = args.fromJson as string | undefined
-        const fromMarkdownPath = args.fromMd as string | undefined
-        const fromFilePath = args.fromFile as string | undefined
-        const dryRun = toBool(args.dryRun, false)
-
-        const toJsonRaw = args.toJson
-        const toJsonVerboseRaw = args.toJsonVerbose
-        const toMarkdownRaw = args.toMd
-        const toAnkiRaw = args.toAnki
-
-        const toJsonRequested = flagProvided(toJsonRaw)
-        const toJsonVerboseRequested = flagProvided(toJsonVerboseRaw)
-        const toMarkdownRequested = flagProvided(toMarkdownRaw)
-        let toAnkiRequested =
-          flagProvided(toAnkiRaw) ||
-          (!toJsonRequested && !toJsonVerboseRequested && !toMarkdownRequested)
-
-        if (toJsonRequested && toJsonVerboseRequested) {
-          throw new Error('Use --to-json or --to-json-verbose, not both.')
-        }
-
-        if (toMarkdownRequested && !flagProvided(toAnkiRaw)) {
-          toAnkiRequested = false
-        }
-
-        const extractVerbose = toJsonVerboseRequested
-        const checkpoint = toJsonRequested || toJsonVerboseRequested
-        const markdownOnly = toMarkdownRequested && !toAnkiRequested
-
-        if (!fromJsonPath && !fromFilePath && !fromMarkdownPath) {
-          throw new Error(
-            'Provide --from-file <file>, --from-json <json path>, or --from-md <markdown path>.',
-          )
-        }
-        const minCharArg = args.minChar as number | undefined
-        if (
-          typeof minCharArg !== 'undefined' &&
-          (!Number.isFinite(minCharArg) ||
-            minCharArg < 0 ||
-            !Number.isInteger(minCharArg))
-        ) {
-          throw new Error('--min-char must be a non-negative integer.')
-        }
-        const minChars = typeof minCharArg === 'number' ? minCharArg : undefined
-        const startChapterArg = args.startChapter as number | undefined
-        const endChapterArg = args.endChapter as number | undefined
-        const indexPath = normalizePathArg(args.index as string | undefined)
-        const indexRanges = normalizePathArg(
-          args.indexRanges as string | undefined,
-        )
-
-        if (
-          flagProvided(args.indexRanges) &&
-          typeof args.indexRanges === 'string' &&
-          !indexRanges
-        ) {
-          throw new Error('--index-ranges must not be empty.')
-        }
-
-        if (indexPath && indexRanges) {
-          throw new Error(
-            'Use --index <path> or --index-ranges "<start-end,...>", not both.',
-          )
-        }
-
-        if (
-          typeof startChapterArg !== 'undefined' &&
-          (!Number.isFinite(startChapterArg) ||
-            startChapterArg <= 0 ||
-            !Number.isInteger(startChapterArg))
-        ) {
-          throw new Error('--start-chapter must be a positive integer.')
-        }
-
-        if (
-          typeof endChapterArg !== 'undefined' &&
-          (!Number.isFinite(endChapterArg) ||
-            endChapterArg <= 0 ||
-            !Number.isInteger(endChapterArg))
-        ) {
-          throw new Error('--end-chapter must be a positive integer.')
-        }
-
-        const deckTitleArg = (args.deckTitle as string | undefined)?.trim()
-        const defaultBaseName = (() => {
-          if (fromMarkdownPath) return parse(fromMarkdownPath).name
-          if (fromJsonPath) return parse(fromJsonPath).name
-          if (fromFilePath) return parse(fromFilePath).name
-          return 'deck'
-        })()
-        const outputBaseName = toKebabAlnum(defaultBaseName || 'deck')
-
-        const toJsonPath = checkpoint
-          ? resolveOutputPath(
-              normalizePathArg(
-                (toJsonVerboseRaw ?? toJsonRaw) as string | undefined | boolean,
-              ),
-              outputBaseName,
-              '.json',
-            )
-          : null
-        const markdownPath =
-          toMarkdownRequested || toAnkiRequested
-            ? resolveOutputPath(
-                normalizePathArg(toMarkdownRaw as string | undefined | boolean),
-                outputBaseName,
-                '.md',
-              )
-            : null
-        const ankiOutputPath = toAnkiRequested
-          ? resolveOutputPath(
-              normalizePathArg(toAnkiRaw as string | undefined | boolean),
-              outputBaseName,
-              '.apkg',
-            )
-          : null
-
-        if (fromMarkdownPath) {
-          if (checkpoint) {
-            throw new Error(
-              'JSON export flags are not supported with --from-md.',
-            )
-          }
-
-          const markdownSource = await runWithSpinner(
-            spinner,
-            'Reading markdown deck...',
-            async () => fs.readFile(fromMarkdownPath, 'utf8'),
-          )
-
-          const headingMatch = markdownSource.match(/^#\s+(.+)\s*$/m)
-          const deckTitle =
-            deckTitleArg && deckTitleArg.length > 0
-              ? deckTitleArg
-              : headingMatch?.[1]?.trim() || parse(fromMarkdownPath).name
-          const finalOutputPath =
-            ankiOutputPath ??
-            resolveOutputPath(undefined, outputBaseName, '.apkg')
-
-          if (dryRun) {
-            logger.info('- dry run: Anki package creation skipped')
-            logger.info(`- would read markdown from ${fromMarkdownPath}`)
-            logger.info(`- would build Anki package at ${finalOutputPath}`)
-            logger.info(`Deck title: ${deckTitle}`)
-            return
-          }
-
-          await runWithSpinner(spinner, 'Building Anki deck...', async () => {
-            await fs.mkdir(dirname(finalOutputPath), { recursive: true })
-            const deckConversionOptions: ConvertMarkdownToAnkiDeckOptions = {
-              target: finalOutputPath,
-              deckName: deckTitle,
-            }
-            await convertMarkdownToAnkiDeck(
-              fromMarkdownPath,
-              deckConversionOptions,
-            )
-          })
-
-          logger.success(
-            `Generated Anki deck from markdown ${fromMarkdownPath} -> ${finalOutputPath}`,
-          )
-          logger.info(`Deck title: ${deckTitle}`)
-          return
-        }
-
-        const provider =
-          (args.provider as SupportedProvider | undefined) ??
-          settings.defaultProvider
-        const providerSettings = settings.providers[provider]
-        const defaultModel =
-          providerSettings?.defaultModel ??
-          settings.providers[settings.defaultProvider]?.defaultModel
-        const model = (args.model as string | undefined) ?? defaultModel
-        const apiKeyLookup = readProviderApiKey(provider)
-
-        if (!apiKeyLookup.apiKey && !checkpoint) {
-          logger.warn(
-            `Missing API key for provider "${provider}". Set ${apiKeyLookup.envVar} in your environment.`,
-          )
-        }
-
-        const providerModelHints: Record<SupportedProvider, RegExp> = {
-          gemini: /^gemini/i,
-          anthropic: /^claude/i,
-          openai: /^gpt/i,
-          deepseek: /^deepseek/i,
-          openrouter:
-            /^(?:openrouter\/)?[a-z0-9._-]+\/[a-z0-9._-]+(?:\/[a-z0-9._-]+)?$/i,
-        }
-
-        const hint = providerModelHints[provider]
-        if (model && hint && !hint.test(model)) {
-          logger.warn(
-            `Model "${model}" may not belong to provider "${provider}".`,
-          )
-        }
-
-        logger.debug(`Provider: ${provider}`)
-        logger.debug(`Model: ${model ?? '(none)'}`)
-
-        let result: {
-          data: { content: { index: number; title?: string; text?: string }[] }
-          text: string
-          fileType: string
-          sourcePath: string
-        }
-
-        if (fromJsonPath) {
-          result = await runWithSpinner(
-            spinner,
-            'Loading extracted JSON...',
-            async () => {
-              const raw = await fs.readFile(fromJsonPath, 'utf8')
-              const parsed = JSON.parse(raw)
-              const validation = validateJsonStructure(parsed, {
-                requireMetadata: false,
-                requireTitles: false,
-              })
-              if (!validation.isValid) {
-                throw new Error(`Invalid JSON input: ${validation.error}`)
-              }
-              return {
-                data: parsed,
-                text: bookJsonToPlainText(parsed),
-                fileType: 'json',
-                sourcePath: fromJsonPath,
-              }
-            },
-          )
-        } else {
-          if (!fromFilePath) {
-            throw new Error(
-              'Provide --from-file <file> when not using --from-json or --from-md.',
-            )
-          }
-          const options: ConvertFileOptions = {
-            inputPath: fromFilePath,
-            type: args.type as string | undefined,
-            indexPath,
-            indexRanges,
-            startChapter: startChapterArg,
-            endChapter: endChapterArg,
-            minChars,
-            epubFilters: extractVerbose ? { titles: [] } : settings.epubFilters,
-            debug: toBool(args.debug, false),
-          }
-
-          result = await convertFileFromPath(options)
-        }
-
-        if (checkpoint && fromFilePath && result.fileType === 'pdf') {
-          logPdfExtractionSummary({
-            logger,
-            sourcePath: fromFilePath,
-            book: result.data,
-            indexProvided: Boolean(indexPath || indexRanges),
-          })
-        }
-
-        const basicExtractPayload = {
-          content: result.data.content.map(section => ({
-            index: section.index,
-            title: section.title,
-            text: section.text,
-          })),
-        }
-        const checkpointPayload = JSON.stringify(
-          extractVerbose ? result.data : basicExtractPayload,
-          null,
-          2,
-        )
-
-        const inputStem = fromFilePath ? parse(fromFilePath).name : ''
-        const jsonStem = fromJsonPath ? parse(fromJsonPath).name : inputStem
-
-        if (checkpoint) {
-          if (!toJsonPath) {
-            throw new Error('No output path resolved for JSON export.')
-          }
-          const usedDefaultCheckpointOutput = !normalizePathArg(
-            (toJsonVerboseRaw ?? toJsonRaw) as string | undefined | boolean,
-          )
-
-          if (dryRun) {
-            logger.info('- dry run: extracted JSON not written to disk')
-            logger.info(`- would write JSON to ${toJsonPath}`)
-            if (usedDefaultCheckpointOutput) {
-              logger.info(`- output path defaulted to cwd: ${process.cwd()}`)
-            }
-            return
-          }
-
-          await runWithSpinner(
-            spinner,
-            'Writing extracted JSON...',
-            async () => {
-              await fs.mkdir(dirname(toJsonPath), { recursive: true })
-              await fs.writeFile(toJsonPath, checkpointPayload)
-            },
-          )
-
-          logger.success(`Saved extracted JSON to ${toJsonPath}`)
-          if (usedDefaultCheckpointOutput) {
-            logger.info(`- output path defaulted to cwd: ${process.cwd()}`)
-          }
-          return
-        }
-
-        if (!model) {
-          throw new Error(
-            'Model is required when invoking a provider. Set it via --model or settings.json.',
-          )
-        }
-
-        if (!apiKeyLookup.apiKey) {
-          throw new Error(
-            `Missing API key for provider "${provider}". Set ${apiKeyLookup.envVar} in your environment.`,
-          )
-        }
-
-        const prompt = await runWithSpinner(
-          spinner,
-          'Loading prompt...',
-          async () => loadPrompt(args.prompt as string | undefined),
-        )
-
-        const deckTitle =
-          deckTitleArg && deckTitleArg.length > 0
-            ? deckTitleArg
-            : fromJsonPath
-              ? jsonStem
-              : inputStem || defaultBaseName
-
-        if (!markdownPath) {
-          throw new Error('No markdown output path resolved.')
-        }
-
-        const usedDefaultMarkdownPath = !normalizePathArg(
-          toMarkdownRaw as string | undefined | boolean,
-        )
-        const usedDefaultAnkiPath = !normalizePathArg(
-          toAnkiRaw as string | undefined | boolean,
-        )
-
-        if (!dryRun) {
-          await fs.mkdir(dirname(markdownPath), { recursive: true })
-          if (ankiOutputPath && !markdownOnly) {
-            await fs.mkdir(dirname(ankiOutputPath), { recursive: true })
-          }
-        }
-
-        const sections = result.data?.content ?? []
-        if (sections.length === 0) {
-          throw new Error('No content sections found to generate flashcards.')
-        }
-
-        logger.info(
-          `Generating flashcards in ${sections.length} section(s) (sequential).`,
-        )
-        const totalSections = sections.length
-        const generationStart = Date.now()
-        const aggregatedCards: Flashcard[] = []
-        const showPerSectionLogs = logger.isDebugEnabled || !ui.progressEnabled
-
-        if (ui.progressEnabled) {
-          progress.start(totalSections, 'Starting generation')
-          progressStarted = true
-        }
-
-        for (const [position, section] of sections.entries()) {
-          const sectionTitle = section.title?.trim()
-          const sectionText = section.text?.trim()
-          const sectionStart = Date.now()
-          const sectionPrefix = `Section ${position + 1}/${totalSections}`
-          const sectionLabel = sectionTitle
-            ? `${sectionPrefix} - ${sectionTitle}`
-            : sectionPrefix
-          const sectionProgressName = sectionTitle || sectionPrefix
-
-          if (showPerSectionLogs) {
-            logger.info(`-> ${sectionLabel}`)
-          }
-
-          if (!sectionText) {
-            if (progressStarted) {
-              progress.clear()
-            }
-            throw new Error(
-              `Section ${position + 1} has no text to process for flashcards.`,
-            )
-          }
-
-          let rawResponse: string | null = null
-          try {
-            let parsedCards: Flashcard[] | null = null
-
-            for (
-              let attempt = 1;
-              attempt <= MAX_MARKDOWN_VALIDATION_ATTEMPTS;
-              attempt++
-            ) {
-              const retrySuffix =
-                attempt > 1
-                  ? ` (retry ${attempt}/${MAX_MARKDOWN_VALIDATION_ATTEMPTS})`
-                  : ''
-              const response = progressStarted
-                ? await runWithProgressHeartbeat({
-                    progress,
-                    current: position,
-                    label: `${sectionProgressName} | Model reasoning...${retrySuffix}`,
-                    intervalMs: 100,
-                    animateSpinner: true,
-                    action: () =>
-                      generateFlashcards({
-                        provider,
-                        model,
-                        apiKey: apiKeyLookup.apiKey,
-                        prompt: prompt.contents,
-                        content: sectionText,
-                      }),
-                  })
-                : await generateFlashcards({
-                    provider,
-                    model,
-                    apiKey: apiKeyLookup.apiKey,
-                    prompt: prompt.contents,
-                    content: sectionText,
-                  })
-
-              rawResponse = response
-              try {
-                parsedCards = parseFlashcardMarkdown(response)
-                break
-              } catch (validationError) {
-                if (!(validationError instanceof Error)) {
-                  throw validationError
-                }
-
-                if (attempt < MAX_MARKDOWN_VALIDATION_ATTEMPTS) {
-                  if (showPerSectionLogs) {
-                    logger.warn(
-                      `   markdown validation failed on attempt ${attempt}/${MAX_MARKDOWN_VALIDATION_ATTEMPTS}; retrying model call for the same section.`,
-                    )
-                    logger.warn(validationError.message)
-                  }
-                  continue
-                }
-
-                throw new Error(
-                  `Markdown formatting remained invalid after ${MAX_MARKDOWN_VALIDATION_ATTEMPTS} attempts.\n${validationError.message}`,
-                )
-              }
-            }
-
-            if (!parsedCards) {
-              throw new Error(
-                `No valid markdown response parsed after ${MAX_MARKDOWN_VALIDATION_ATTEMPTS} attempts.`,
-              )
-            }
-
-            aggregatedCards.push(...parsedCards)
-            const duration = formatDuration(Date.now() - sectionStart)
-
-            if (showPerSectionLogs) {
-              logger.info(
-                `   status: success | flashcards: ${parsedCards.length} | time: ${duration}`,
-              )
-            }
-
-            if (progressStarted) {
-              progress.increment(sectionLabel)
-            }
-          } catch (error) {
-            if (progressStarted) {
-              progress.clear()
-            }
-
-            const duration = formatDuration(Date.now() - sectionStart)
-            logger.error(
-              `${sectionLabel} failed | flashcards: 0 | time: ${duration}`,
-            )
-
-            if (dryRun) {
-              logger.warn(
-                'Dry run enabled; partial markdown and failed section artifacts were not written.',
-              )
-            } else {
-              const markdownDir = dirname(markdownPath)
-              const partialPath = join(
-                markdownDir,
-                `${outputBaseName}-partial.md`,
-              )
-              const failedSectionPath = join(
-                markdownDir,
-                `${outputBaseName}-failed-section-${position + 1}.md`,
-              )
-
-              const partialBody =
-                aggregatedCards.length > 0
-                  ? renderFlashcards(aggregatedCards)
-                  : ''
-              const partialPayload = buildDeckMarkdown(deckTitle, partialBody)
-              await fs.mkdir(dirname(partialPath), { recursive: true })
-              await fs.writeFile(partialPath, partialPayload, 'utf8')
-
-              const failedPayload =
-                rawResponse && rawResponse.trim().length > 0
-                  ? rawResponse
-                  : 'No model response captured for this section.'
-              await fs.mkdir(dirname(failedSectionPath), { recursive: true })
-              await fs.writeFile(failedSectionPath, failedPayload, 'utf8')
-
-              logger.warn(`Partial markdown saved to ${partialPath}`)
-              logger.warn(
-                `Failed section output saved to ${failedSectionPath} (${sectionLabel})`,
-              )
-            }
-
-            throw new Error(
-              `Section ${position + 1} failed: ${(error as Error).message}`,
-            )
-          }
-        }
-
-        if (progressStarted) {
-          progress.stop()
-          progressStarted = false
-        }
-
-        if (aggregatedCards.length === 0) {
-          throw new Error(
-            'Flashcard generation produced no cards. Check the prompt or input content.',
-          )
-        }
-
-        const totalDuration = formatDuration(Date.now() - generationStart)
-        logger.success(
-          `Generated ${aggregatedCards.length} flashcards in ${totalDuration}.`,
-        )
-
-        const flashcards = renderFlashcards(aggregatedCards)
-        const markdownPayload = buildDeckMarkdown(deckTitle, flashcards)
-
-        if (dryRun) {
-          logger.info('- dry run: markdown deck not written to disk')
-          logger.info(`- would write markdown to ${markdownPath}`)
-          if (usedDefaultMarkdownPath) {
-            logger.info('Output path defaulted to current working directory.')
-          }
-          if (!markdownOnly && ankiOutputPath) {
-            logger.info('- dry run: Anki package creation skipped')
-            logger.info(`- would build Anki package at ${ankiOutputPath}`)
-            if (usedDefaultAnkiPath) {
-              logger.info('Output path defaulted to current working directory.')
-            }
-          }
-          logger.info(`Using prompt "${prompt.name}" from ${prompt.path}`)
-          return
-        }
-
-        await runWithSpinner(spinner, 'Writing markdown deck...', async () => {
-          await fs.writeFile(markdownPath, markdownPayload, 'utf8')
-        })
-
-        if (markdownOnly) {
-          logger.success(
-            `Generated markdown flashcards from ${fromJsonPath ?? fromFilePath} -> ${markdownPath}`,
-          )
-          if (usedDefaultMarkdownPath) {
-            logger.info('Output path defaulted to current working directory.')
-          }
-          logger.info(`Using prompt "${prompt.name}" from ${prompt.path}`)
-          return
-        }
-
-        if (!ankiOutputPath) {
-          throw new Error('No Anki output path resolved.')
-        }
-
-        await runWithSpinner(spinner, 'Building Anki package...', async () => {
-          const deckConversionOptions: ConvertMarkdownToAnkiDeckOptions = {
-            target: ankiOutputPath,
-            deckName: deckTitle,
-          }
-          await convertMarkdownToAnkiDeck(markdownPath, deckConversionOptions)
-        })
-
-        logger.success(
-          `Generated Anki deck from ${fromJsonPath ?? fromFilePath} (${result.fileType.toUpperCase()}) -> ${ankiOutputPath}`,
-        )
-        if (usedDefaultAnkiPath) {
-          logger.info('Output path defaulted to current working directory.')
-        }
-        if (usedDefaultMarkdownPath) {
-          logger.info('Deck markdown defaulted to current working directory.')
-        }
-        logger.info(`Deck markdown saved to ${markdownPath}`)
-        logger.info(`Using prompt "${prompt.name}" from ${prompt.path}`)
-      } catch (error) {
-        spinner.stop()
-        if (progressStarted) {
-          progress.clear()
-        }
-        logger.error(`Conversion failed: ${(error as Error).message}`)
-        process.exitCode = 1
-      }
-    },
+    async args => handleIndexTemplate(args),
   )
   .strict()
   .help()

@@ -20,7 +20,7 @@ pnpm i -g @shbernal/pdfanki-cli
 
 Local repo workflows
 - Run the local-dev CLI against repo sources from the project root:
-  - `pnpm pdfanki-local -- --from-file /path/to/book.epub --to-json`
+  - `pnpm pdfanki-local -- epub json /path/to/book.epub`
 - Run the pack/install smoke test from the project root:
   - `pnpm cli-local-test`
 - `pnpm cli-local-test` defaults to writing tarballs under `.tmp/packed/`.
@@ -38,26 +38,38 @@ Config (XDG)
   - `prompts/default.md` (you can pick any `.md` in this directory as the prompt)
 
 How the CLI works
-- You always convert between an input state and an output state:
-  - File: PDF/EPUB source
-  - JSON: Structured contents of the file
-  - Markdown: Flashcards in Markdown
-  - Anki: Final `.apkg`
-- Example: create an Anki deck from a file
-  - `pdfanki --from-file book.pdf --to-anki --deck-title "Book Deck"`
-- Example: generate markdown with DeepSeek
-  - `pdfanki --from-file book.pdf --provider deepseek --model deepseek-chat --to-md`
-- Example: generate markdown with OpenRouter
-  - `pdfanki --from-file book.pdf --provider openrouter --model z-ai/glm-5 --to-md`
+- The CLI is organized around source commands and target subcommands:
+  - `pdfanki pdf <json|md|anki> <input>`
+  - `pdfanki epub <json|md|anki> <input>`
+  - `pdfanki json <md|anki> <input>`
+  - `pdfanki md anki <input>`
+- Example: create an Anki deck from a PDF
+  - `pdfanki pdf anki book.pdf --deck-title "Book Deck"`
+- Example: generate markdown from a PDF with DeepSeek
+  - `pdfanki pdf md book.pdf --provider deepseek --model deepseek-chat`
+- Example: generate markdown from a PDF with OpenRouter
+  - `pdfanki pdf md book.pdf --provider openrouter --model z-ai/glm-5`
+- Example: extract JSON from an EPUB chapter range
+  - `pdfanki epub json book.epub --start-chapter 3 --end-chapter 5 --min-char 300`
+- Example: build an Anki deck from existing markdown
+  - `pdfanki md anki deck.md`
+- Example: build an Anki deck from existing extracted JSON
+  - `pdfanki json anki book.json --provider deepseek --model deepseek-reasoner`
 - Example: print the current config
   - `pdfanki config`
+- Example: reset the local config directory
+  - `pdfanki config reset`
+- Example: list local prompts
+  - `pdfanki prompts list`
 - Inspect intermediate steps before sending to a model or exporting:
-  - `pdfanki --from-file book.pdf --to-json`
-  - `pdfanki --from-file book.pdf --to-md`
+  - `pdfanki pdf json book.pdf`
+  - `pdfanki pdf md book.pdf`
 - Simulate JSON or markdown generation without writing files:
-  - `pdfanki --from-file book.pdf --to-json --dry-run`
-  - `pdfanki --from-file book.pdf --to-md --dry-run`
+  - `pdfanki pdf json book.pdf --dry-run`
+  - `pdfanki pdf md book.pdf --dry-run`
 - Defaults go to the current working directory with filenames derived from the input (`kebab-case`).
+- Use `-o, --out` to override the final output path for any conversion command.
+- `... anki` commands only write the requested `.apkg` on success. If markdown generation fails, partial/debug markdown artifacts are still written for diagnosis.
 
 Local fixtures
 - Put local real files under `fixtures/local/`.
@@ -68,8 +80,8 @@ Local fixtures
 - These files are gitignored so you can keep private or large source documents out of the repo.
 
 PDF index helpers
-- `pdfanki index-template <count> [out]`: Generate an `index.json` scaffold.
-- `--index <path>` expects a JSON array of chapter ranges (1-based pages, inclusive). `title` is optional:
+- `pdfanki index template <count> [out]`: Generate an `index.json` scaffold.
+- `pdfanki pdf json|md|anki <input> --index <path>` expects a JSON array of chapter ranges (1-based pages, inclusive). `title` is optional:
 
 ```json
 [
@@ -86,9 +98,10 @@ PDF index helpers
 ```
 
 - Ranges must be in ascending order and must not overlap. Gaps are allowed.
+- Use `--full-fidelity` with `pdfanki pdf json` or `pdfanki epub json` to write the unpruned extraction payload.
 
 Minimal JSON shape
-Use the same structure for `--from-json` or when inspecting output from `--to-json`:
+Use the same structure for `pdfanki json md`, `pdfanki json anki`, or when inspecting output from `pdfanki pdf json` / `pdfanki epub json`:
 
 ```json
 {
