@@ -1,8 +1,8 @@
 {
   "name": "@shbernal/pdfanki",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@10.33.2",
   "description": "Core PDF/EPUB parsing and flashcard generation utilities for pdfanki",
   "author": "shbernal <shbernal.01@gmail.com>",
   "license": "MIT",
@@ -44,7 +44,7 @@
     "format": "prettier --list-different . | xargs -r prettier --write"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.90.0",
+    "@anthropic-ai/sdk": "^0.91.1",
     "@google/genai": "^1.50.1",
     "epub": "^2.1.1",
     "openai": "^6.34.0",
