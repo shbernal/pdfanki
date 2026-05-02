@@ -6,6 +6,7 @@ import { tmpdir } from 'os'
 import { DEFAULT_EPUB_TITLE_FILTERS } from './epubFilters.js'
 
 const ANSI_BRIGHT_BLUE = '\u001b[94m'
+const ANSI_BRIGHT_GREEN = '\u001b[92m'
 const ANSI_BRIGHT_RED = '\u001b[91m'
 const ANSI_BRIGHT_YELLOW = '\u001b[93m'
 const ANSI_UNDERLINE = '\u001b[4m'
@@ -19,7 +20,7 @@ function styleText(
   text: string,
   options: {
     useColor?: boolean
-    color?: 'blue' | 'red' | 'yellow'
+    color?: 'blue' | 'green' | 'red' | 'yellow'
     underline?: boolean
   } = {},
 ) {
@@ -34,6 +35,8 @@ function styleText(
   }
   if (color === 'blue') {
     prefix += ANSI_BRIGHT_BLUE
+  } else if (color === 'green') {
+    prefix += ANSI_BRIGHT_GREEN
   } else if (color === 'red') {
     prefix += ANSI_BRIGHT_RED
   } else if (color === 'yellow') {
@@ -51,6 +54,69 @@ function formatNumberGroups(value: number): string {
   return `${sign}${grouped}`
 }
 
+function formatChapterLabel(
+  chapterNumber: number,
+  totalChapters: number,
+): string {
+  const width = Math.max(2, String(totalChapters).length)
+  return `${String(chapterNumber).padStart(width, ' ')}.`
+}
+
+function parseSectionSelectionValue(value, label: string): number | undefined {
+  if (typeof value === 'undefined' || value === null) {
+    return undefined
+  }
+
+  const parsed =
+    typeof value === 'number' ? value : Number.parseInt(String(value), 10)
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`${label} must be an integer`)
+  }
+
+  return parsed
+}
+
+function resolveChapterRange(
+  totalChapters: number,
+  startChapter?,
+  endChapter?,
+) {
+  const parsedStart = parseSectionSelectionValue(startChapter, 'Start section')
+  const parsedEnd = parseSectionSelectionValue(endChapter, 'End section')
+  const startIdx = (parsedStart ?? 1) - 1
+  const endIdx = (parsedEnd ?? totalChapters) - 1
+
+  if (startIdx < 0 || startIdx >= totalChapters) {
+    throw new Error(
+      `Start section ${parsedStart} is out of range (1-${totalChapters})`,
+    )
+  }
+  if (endIdx < 0 || endIdx >= totalChapters) {
+    throw new Error(
+      `End section ${parsedEnd} is out of range (1-${totalChapters})`,
+    )
+  }
+  if (startIdx > endIdx) {
+    throw new Error('Start section cannot be greater than end section')
+  }
+
+  return { startIdx, endIdx }
+}
+
+function getChapterRangeReason(
+  chapterNumber: number,
+  selectedRange: { startIdx: number; endIdx: number },
+): string | null {
+  if (
+    chapterNumber < selectedRange.startIdx + 1 ||
+    chapterNumber > selectedRange.endIdx + 1
+  ) {
+    return `outside selected section range ${selectedRange.startIdx + 1}-${selectedRange.endIdx + 1}`
+  }
+
+  return null
+}
+
 /**
  * Parse EPUB using epub library and return a promise
  */
@@ -59,6 +125,11 @@ export function parseEpubWithEpubLib(
   fileName,
   titleFilters = DEFAULT_EPUB_TITLE_FILTERS,
   minChars?,
+  preview = false,
+  previewChars = 120,
+  excludedChapters?: ReadonlySet<number>,
+  startChapter?,
+  endChapter?,
 ) {
   return (async () => {
     // Create a temporary file since epub library expects a file path
@@ -88,6 +159,11 @@ export function parseEpubWithEpubLib(
       // Get content list (chapters)
       const chapters = epub.flow
       const totalChapters = chapters.length
+      const selectedRange = resolveChapterRange(
+        totalChapters,
+        startChapter,
+        endChapter,
+      )
 
       const sectionsFoundMessage = `${totalChapters} content sections:`
       console.log(
@@ -101,7 +177,37 @@ export function parseEpubWithEpubLib(
       const extractedChapters = []
       for (let i = 0; i < chapters.length; i++) {
         const chapter = chapters[i]
-        const chapterTitle = chapter.title || `Section ${i + 1}`
+        const chapterNumber = i + 1
+        const chapterTitle = chapter.title || `Section ${chapterNumber}`
+        const styledChapterTitle = styleText(chapterTitle, {
+          useColor,
+          color: 'blue',
+        })
+        const selectionReason = getSelectionFilterReason(
+          chapterNumber,
+          selectedRange,
+          excludedChapters,
+        )
+
+        if (selectionReason) {
+          extractedChapters.push({
+            index: chapterNumber,
+            title: chapterTitle,
+            text: '',
+            originalIndex: chapterNumber,
+          })
+          const filteredChapterLabel = styleText(
+            formatChapterLabel(chapterNumber, totalChapters),
+            {
+              useColor,
+              color: 'red',
+            },
+          )
+          console.log(
+            `${filteredChapterLabel} ${styleText('[filtered out]', { useColor, color: 'red' })} "${styledChapterTitle}" - ${selectionReason}`,
+          )
+          continue
+        }
 
         try {
           // Get chapter content
@@ -109,17 +215,20 @@ export function parseEpubWithEpubLib(
           const cleanText = cleanHtmlText(chapterText)
           const sectionCharCount = cleanText.length
           const filterResult = shouldFilterContent(
+            chapterNumber,
             chapterTitle,
             cleanText,
             titleMatchers,
             minChars,
+            selectedRange,
+            excludedChapters,
           )
 
           extractedChapters.push({
-            index: i + 1,
+            index: chapterNumber,
             title: chapterTitle,
             text: cleanText,
-            originalIndex: i + 1,
+            originalIndex: chapterNumber,
           })
           const charCountLabel = styleText(
             `${formatNumberGroups(sectionCharCount)} char`,
@@ -130,11 +239,31 @@ export function parseEpubWithEpubLib(
           )
 
           if (filterResult.shouldFilter) {
+            const filteredChapterLabel = styleText(
+              formatChapterLabel(chapterNumber, totalChapters),
+              {
+                useColor,
+                color: 'red',
+              },
+            )
             console.log(
-              `${styleText('[filtered out]', { useColor, color: 'red' })} "${chapterTitle}" ${charCountLabel} - ${filterResult.reason}`,
+              `${filteredChapterLabel} ${styleText('[filtered out]', { useColor, color: 'red' })} "${styledChapterTitle}" ${charCountLabel} - ${filterResult.reason}`,
             )
           } else {
-            console.log(`Processing: ${chapterTitle} ${charCountLabel}`)
+            const processedChapterLabel = styleText(
+              formatChapterLabel(chapterNumber, totalChapters),
+              {
+                useColor,
+                color: 'green',
+              },
+            )
+            console.log(
+              `${processedChapterLabel} ${styleText('Processing:', { useColor, color: 'green' })} ${styledChapterTitle} ${charCountLabel}`,
+            )
+
+            if (preview) {
+              console.log(`  ${buildPreviewText(cleanText, previewChars)}`)
+            }
           }
         } catch (chapterError) {
           console.warn(
@@ -142,10 +271,10 @@ export function parseEpubWithEpubLib(
           )
           // Add empty chapter to maintain index consistency
           extractedChapters.push({
-            index: i + 1,
+            index: chapterNumber,
             title: chapterTitle,
             text: '',
-            originalIndex: i + 1,
+            originalIndex: chapterNumber,
             error: chapterError.message,
           })
         }
@@ -178,27 +307,14 @@ export function transformEpubResult(
   endChapter,
   titleFilters = DEFAULT_EPUB_TITLE_FILTERS,
   minChars?,
+  excludedChapters?: ReadonlySet<number>,
 ) {
   const { metadata, chapters, totalChapters } = epubData
-
-  // Determine which chapters to extract
-  const startIdx = startChapter ? parseInt(startChapter, 10) - 1 : 0
-  const endIdx = endChapter ? parseInt(endChapter, 10) - 1 : totalChapters - 1
-
-  // Validate chapter range
-  if (startIdx < 0 || startIdx >= totalChapters) {
-    throw new Error(
-      `Start chapter ${startChapter} is out of range (1-${totalChapters})`,
-    )
-  }
-  if (endIdx < 0 || endIdx >= totalChapters) {
-    throw new Error(
-      `End chapter ${endChapter} is out of range (1-${totalChapters})`,
-    )
-  }
-  if (startIdx > endIdx) {
-    throw new Error('Start chapter cannot be greater than end chapter')
-  }
+  const selectedRange = resolveChapterRange(
+    totalChapters,
+    startChapter,
+    endChapter,
+  )
 
   const content = []
   const filteredOut = []
@@ -206,9 +322,10 @@ export function transformEpubResult(
 
   const titleMatchers = buildTitleMatchers(titleFilters)
 
-  // Process selected chapters
-  for (let i = startIdx; i <= endIdx; i++) {
+  // Process all chapters so out-of-range sections are counted as filtered.
+  for (let i = 0; i < chapters.length; i++) {
     const chapter = chapters[i]
+    const chapterNumber = i + 1
 
     if (!chapter) {
       console.warn(`Chapter at index ${i} not found`)
@@ -217,15 +334,18 @@ export function transformEpubResult(
 
     // Check if content should be filtered
     const filterResult = shouldFilterContent(
+      chapterNumber,
       chapter.title,
       chapter.text,
       titleMatchers,
       minChars,
+      selectedRange,
+      excludedChapters,
     )
 
     if (filterResult.shouldFilter) {
       filteredOut.push({
-        originalIndex: i + 1,
+        originalIndex: chapterNumber,
         title: chapter.title,
         reason: filterResult.reason,
       })
@@ -238,12 +358,12 @@ export function transformEpubResult(
         index: contentNumber,
         title: chapter.title,
         text: chapter.text,
-        originalChapterIndex: i + 1,
+        originalChapterIndex: chapterNumber,
       })
       contentNumber++
     } else {
       filteredOut.push({
-        originalIndex: i + 1,
+        originalIndex: chapterNumber,
         title: chapter.title,
         reason: 'empty content',
       })
@@ -260,19 +380,14 @@ export function transformEpubResult(
     isbn: metadata.ISBN || null,
     fileType: 'epub',
     totalPages: totalChapters, // For EPUB, chapters are equivalent to "pages"
-    extractedPages: endIdx - startIdx + 1,
+    extractedPages: selectedRange.endIdx - selectedRange.startIdx + 1,
     extractedSections: content.length,
     filteredSections: filteredOut.length,
-    extractedRange: `Chapters ${startIdx + 1}-${endIdx + 1}`,
+    extractedRange: `Chapters ${selectedRange.startIdx + 1}-${selectedRange.endIdx + 1}`,
     processingMethod: 'epub-library',
     hasIndex: true, // EPUB inherently has structured chapters
     indexChapters: totalChapters,
   }
-
-  console.log('EPUB transformation complete:', {
-    extractedSections: content.length,
-    filteredSections: filteredOut.length,
-  })
 
   return {
     metadata: transformedMetadata,
@@ -285,6 +400,22 @@ export function transformEpubResult(
  */
 function getChapterText(epub, chapterId) {
   return epub.getChapter(chapterId)
+}
+
+function buildPreviewText(text: string, previewChars: number): string {
+  const normalizedPreviewChars =
+    Number.isInteger(previewChars) && previewChars > 0 ? previewChars : 120
+  const normalizedText = text.replace(/\s+/g, ' ').trim()
+
+  if (!normalizedText) {
+    return '[empty]'
+  }
+
+  if (normalizedText.length <= normalizedPreviewChars) {
+    return normalizedText
+  }
+
+  return `${normalizedText.slice(0, normalizedPreviewChars).trimEnd()}...`
 }
 
 /**
@@ -345,7 +476,45 @@ function buildTitleMatchers(filters) {
   return matchers
 }
 
-function shouldFilterContent(title, text, titleMatchers, minChars?) {
+function getSelectionFilterReason(
+  chapterNumber: number,
+  selectedRange: { startIdx: number; endIdx: number },
+  excludedChapters?: ReadonlySet<number>,
+): string | null {
+  const rangeReason = getChapterRangeReason(chapterNumber, selectedRange)
+  if (rangeReason) {
+    return rangeReason
+  }
+
+  if (excludedChapters?.has(chapterNumber)) {
+    return 'excluded by --exclude-sections'
+  }
+
+  return null
+}
+
+function shouldFilterContent(
+  chapterNumber,
+  title,
+  text,
+  titleMatchers,
+  minChars?,
+  selectedRange?,
+  excludedChapters?: ReadonlySet<number>,
+) {
+  if (!selectedRange) {
+    throw new Error('selectedRange is required for EPUB filtering')
+  }
+
+  const selectionReason = getSelectionFilterReason(
+    chapterNumber,
+    selectedRange,
+    excludedChapters,
+  )
+  if (selectionReason) {
+    return { shouldFilter: true, reason: selectionReason }
+  }
+
   const textLength = text?.length ?? 0
 
   // Check if content is empty

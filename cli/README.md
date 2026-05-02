@@ -15,9 +15,35 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 
 - Config dir: `$XDG_CONFIG_HOME/pdfanki/` or `~/.pdfanki/` if unset
 - Auto-created on first run:
-  - `settings.json` with `gemini` as default provider.
+  - `settings.json` with nested `output`, `generation`, and `epub` sections.
   - `prompts/default.md`: default prompt
     - you can select any `.md` in this dir as prompt.
+
+Default `settings.json` shape:
+
+```json
+{
+  "output": {
+    "path": "."
+  },
+  "generation": {
+    "defaultProvider": "gemini",
+    "defaultPrompt": "default",
+    "providers": {
+      "gemini": {
+        "defaultModel": "gemini-3-pro-preview"
+      }
+    }
+  },
+  "epub": {
+    "preview": false,
+    "previewChars": 120,
+    "filters": {
+      "titles": [{ "type": "regex", "pattern": "^contents?$", "flags": "i" }]
+    }
+  }
+}
+```
 
 ## Usage
 
@@ -30,7 +56,10 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 - Create an Anki deck from a PDF: `pdfanki pdf anki file.pdf --deck-title "Title"`
 - Use DeepSeek explicitly (with `DEEPSEEK_API_KEY` set): `pdfanki pdf md file.pdf --provider deepseek --model deepseek-chat`
 - Use OpenRouter explicitly (with `OPENROUTER_API_KEY` set): `pdfanki pdf md file.pdf --provider openrouter --model z-ai/glm-5`
-- Extract JSON from an EPUB chapter slice: `pdfanki epub json file.epub --start-chapter 3 --end-chapter 5 --min-char 300`
+- Extract JSON from an EPUB section slice: `pdfanki epub json file.epub --start-section 3 --end-section 5 --min-char 300`
+- Extract JSON from an EPUB while skipping specific sections: `pdfanki epub json file.epub --exclude-sections "3,7,19,25-27"`
+- Extract JSON from an EPUB with section previews: `pdfanki epub json file.epub --preview`
+- Extract JSON from an EPUB with 200-char previews: `pdfanki epub json file.epub --preview 200`
 - Build an Anki deck from extracted JSON: `pdfanki json anki file.json --provider deepseek --model deepseek-reasoner`
 - Build an Anki deck from existing markdown: `pdfanki md anki deck.md`
 - List available prompts from the configured prompts directory: `pdfanki prompts list`
@@ -80,10 +109,13 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 - Pages are 1-based and inclusive; `start` ≤ `end`. Each entry maps to one output section.
 - Ranges must be in ascending order and must not overlap. Gaps are allowed.
 - `--full-fidelity` on `pdfanki pdf json` or `pdfanki epub json` writes the unpruned extraction payload.
-- `--start-chapter <num>` / `--end-chapter <num>` restrict EPUB extraction to a 1-based inclusive chapter range.
+- `--start-section <num>` / `--end-section <num>` restrict EPUB extraction to a 1-based inclusive section range.
+- `--exclude-sections "<section>,<section>,<start>-<end>"` skips specific EPUB sections by original 1-based section number.
 - `--min-char <num>` filters out extracted sections with fewer than `<num>` characters.
+- `--preview` prints a text preview under each EPUB section during parsing.
+- `--preview <num>` or `--preview-chars <num>` sets the EPUB preview length. If no explicit value is provided and no config value is set, the default is `120`.
 
-- PDFs only support filtering through `--index` or `--index-ranges`. EPUB chapter filtering uses `--start-chapter` / `--end-chapter`.
+- PDFs only support filtering through `--index` or `--index-ranges`. EPUB section filtering uses `--start-section` / `--end-section`.
 
 ### JSON shape for `pdfanki json ...`
 

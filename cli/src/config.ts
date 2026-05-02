@@ -52,27 +52,36 @@ const DEFAULT_PROMPT_CONTENT = `Create flashcards in Markdown using this exact f
 Text to process:`
 
 export const DEFAULT_SETTINGS: Settings = {
-  defaultProvider: 'gemini',
-  providers: {
-    gemini: {
-      defaultModel: 'gemini-3-pro-preview',
-    },
-    anthropic: {
-      defaultModel: 'claude-sonnet-4-5',
-    },
-    openai: {
-      defaultModel: 'gpt-5.2-2025-12-11',
-    },
-    deepseek: {
-      defaultModel: 'deepseek-chat',
-    },
-    openrouter: {
-      defaultModel: 'z-ai/glm-5',
+  output: {
+    path: '.',
+  },
+  generation: {
+    defaultProvider: 'gemini',
+    defaultPrompt: DEFAULT_PROMPT_NAME,
+    providers: {
+      gemini: {
+        defaultModel: 'gemini-3-pro-preview',
+      },
+      anthropic: {
+        defaultModel: 'claude-sonnet-4-5',
+      },
+      openai: {
+        defaultModel: 'gpt-5.2-2025-12-11',
+      },
+      deepseek: {
+        defaultModel: 'deepseek-chat',
+      },
+      openrouter: {
+        defaultModel: 'z-ai/glm-5',
+      },
     },
   },
-  outputPath: '.',
-  epubFilters: {
-    titles: DEFAULT_EPUB_TITLE_FILTERS,
+  epub: {
+    preview: false,
+    previewChars: 120,
+    filters: {
+      titles: DEFAULT_EPUB_TITLE_FILTERS,
+    },
   },
 } as const
 
@@ -81,11 +90,20 @@ export type ProviderSettings = {
 }
 
 export type Settings = {
-  defaultProvider: SupportedProvider
-  providers: Record<SupportedProvider, ProviderSettings>
-  outputPath: string
-  epubFilters: {
-    titles: EpubTitleFilter[]
+  output: {
+    path: string
+  }
+  generation: {
+    defaultProvider: SupportedProvider
+    defaultPrompt: string
+    providers: Record<SupportedProvider, ProviderSettings>
+  }
+  epub: {
+    preview: boolean
+    previewChars: number
+    filters: {
+      titles: EpubTitleFilter[]
+    }
   }
 }
 
@@ -94,6 +112,24 @@ export type ConfigPaths = {
   settings: string
   promptsDir: string
   defaultPrompt: string
+}
+
+function mergeUniqueTitleFilters(
+  ...groups: Array<readonly EpubTitleFilter[] | undefined>
+): EpubTitleFilter[] {
+  const seen = new Set<string>()
+  const merged: EpubTitleFilter[] = []
+
+  for (const group of groups) {
+    for (const filter of group ?? []) {
+      const key = JSON.stringify(filter)
+      if (seen.has(key)) continue
+      seen.add(key)
+      merged.push(filter)
+    }
+  }
+
+  return merged
 }
 
 export function getConfigDir(): string {
@@ -158,21 +194,62 @@ export async function loadSettings(): Promise<Settings> {
   try {
     const raw = await fs.readFile(paths.settings, 'utf8')
     const parsed = JSON.parse(raw)
-    const mergedProviders: Record<SupportedProvider, ProviderSettings> = {
-      ...DEFAULT_SETTINGS.providers,
+    const parsedProviders = {
       ...(parsed.providers ?? {}),
+      ...(parsed.generation?.providers ?? {}),
+    }
+    const mergedProviders: Record<SupportedProvider, ProviderSettings> = {
+      ...DEFAULT_SETTINGS.generation.providers,
+      ...parsedProviders,
     }
     const mergedEpubFilters = {
-      titles: [
-        ...DEFAULT_EPUB_TITLE_FILTERS,
-        ...(parsed.epubFilters?.titles ?? []),
-      ],
+      titles: mergeUniqueTitleFilters(
+        DEFAULT_EPUB_TITLE_FILTERS,
+        parsed.epub?.filters?.titles,
+        parsed.epubFilters?.titles,
+      ),
     }
+    const preview =
+      typeof parsed.epub?.preview === 'boolean'
+        ? parsed.epub.preview
+        : DEFAULT_SETTINGS.epub.preview
+    const previewChars =
+      typeof parsed.epub?.previewChars === 'number' &&
+      Number.isInteger(parsed.epub.previewChars) &&
+      parsed.epub.previewChars > 0
+        ? parsed.epub.previewChars
+        : DEFAULT_SETTINGS.epub.previewChars
+
     return {
       ...DEFAULT_SETTINGS,
-      ...parsed,
-      providers: mergedProviders,
-      epubFilters: mergedEpubFilters,
+      output: {
+        ...DEFAULT_SETTINGS.output,
+        ...(parsed.output ?? {}),
+        path:
+          parsed.output?.path ??
+          parsed.outputPath ??
+          DEFAULT_SETTINGS.output.path,
+      },
+      generation: {
+        ...DEFAULT_SETTINGS.generation,
+        ...(parsed.generation ?? {}),
+        defaultProvider:
+          parsed.generation?.defaultProvider ??
+          parsed.defaultProvider ??
+          DEFAULT_SETTINGS.generation.defaultProvider,
+        defaultPrompt:
+          parsed.generation?.defaultPrompt ??
+          parsed.defaultPrompt ??
+          DEFAULT_SETTINGS.generation.defaultPrompt,
+        providers: mergedProviders,
+      },
+      epub: {
+        ...DEFAULT_SETTINGS.epub,
+        ...(parsed.epub ?? {}),
+        preview,
+        previewChars,
+        filters: mergedEpubFilters,
+      },
     }
   } catch {
     // Fall back to defaults if parsing fails.

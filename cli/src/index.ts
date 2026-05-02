@@ -100,6 +100,34 @@ function normalizePathArg(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+function normalizePreviewCliArgs(args: string[]): string[] {
+  const normalizedArgs: string[] = []
+
+  for (let index = 0; index < args.length; index++) {
+    const current = args[index]
+    if (current === '--preview') {
+      const next = args[index + 1]
+      if (typeof next === 'string' && /^\d+$/.test(next)) {
+        normalizedArgs.push('--preview', '--preview-chars', next)
+        index++
+        continue
+      }
+    }
+
+    if (current.startsWith('--preview=')) {
+      const previewValue = current.slice('--preview='.length).trim()
+      if (/^\d+$/.test(previewValue)) {
+        normalizedArgs.push('--preview', '--preview-chars', previewValue)
+        continue
+      }
+    }
+
+    normalizedArgs.push(current)
+  }
+
+  return normalizedArgs
+}
+
 function flagProvided(value: unknown): boolean {
   if (value === undefined) return false
   if (typeof value === 'boolean') return value
@@ -611,9 +639,12 @@ type WorkflowCommandArgs = UiBuildArgs & {
   fullFidelity?: unknown
   index?: unknown
   indexRanges?: unknown
-  startChapter?: unknown
-  endChapter?: unknown
+  startSection?: unknown
+  endSection?: unknown
+  excludeSections?: unknown
   minChar?: unknown
+  preview?: unknown
+  previewChars?: unknown
   provider?: unknown
   prompt?: unknown
   model?: unknown
@@ -735,18 +766,48 @@ function withPdfSourceOptions<T>(y: Argv<T>): Argv<T> {
 
 function withEpubSourceOptions<T>(y: Argv<T>): Argv<T> {
   return y
-    .option('start-chapter', {
+    .option('start-section', {
       type: 'number',
-      describe: 'First EPUB chapter to extract (1-based, inclusive).',
+      describe: 'First EPUB section to extract (1-based, inclusive).',
     })
-    .option('end-chapter', {
+    .option('end-section', {
       type: 'number',
-      describe: 'Last EPUB chapter to extract (1-based, inclusive).',
+      describe: 'Last EPUB section to extract (1-based, inclusive).',
+    })
+    .option('exclude-sections', {
+      type: 'string',
+      describe:
+        'Skip specific EPUB sections using comma-separated section numbers or ranges, e.g. "3,7,19,25-27".',
     })
     .option('min-char', {
       type: 'number',
       describe: 'Filter out sections with fewer than this many characters.',
     })
+    .option('preview', {
+      type: 'boolean',
+      default: false,
+      describe:
+        'Show a text preview under each EPUB section while parsing. You can also pass --preview <chars>.',
+    })
+    .option('preview-chars', {
+      type: 'number',
+      describe:
+        'Number of characters to print in EPUB section previews. Implies --preview when provided.',
+    })
+}
+
+function getPreviewFlagMode(args: string[]): 'enabled' | 'disabled' | 'unset' {
+  for (const arg of args) {
+    if (arg === '--no-preview' || arg === '--preview=false') {
+      return 'disabled'
+    }
+
+    if (arg === '--preview' || arg.startsWith('--preview=')) {
+      return 'enabled'
+    }
+  }
+
+  return 'unset'
 }
 
 function withGenerationOptions<T>(y: Argv<T>): Argv<T> {
@@ -760,8 +821,8 @@ function withGenerationOptions<T>(y: Argv<T>): Argv<T> {
     .option('prompt', {
       alias: 'p',
       type: 'string',
-      default: 'default',
-      describe: 'Prompt to load, e.g. "default" -> prompts/default.md.',
+      describe:
+        'Prompt to load, e.g. "default" -> prompts/default.md. Defaults to settings.json.',
     })
     .option('model', {
       alias: 'm',
@@ -830,6 +891,7 @@ async function loadStructuredSource(options: {
   indexRanges?: string
   startChapter?: number
   endChapter?: number
+  excludeChapters?: string
   minChars?: number
   debug: boolean
   fullFidelity: boolean
@@ -843,6 +905,7 @@ async function loadStructuredSource(options: {
     indexRanges,
     startChapter,
     endChapter,
+    excludeChapters,
     minChars,
     debug,
     fullFidelity,
@@ -875,8 +938,11 @@ async function loadStructuredSource(options: {
     indexRanges,
     startChapter,
     endChapter,
+    excludeChapters,
     minChars,
-    epubFilters: fullFidelity ? { titles: [] } : settings.epubFilters,
+    preview: settings.epub.preview,
+    previewChars: settings.epub.previewChars,
+    epubFilters: fullFidelity ? { titles: [] } : settings.epub.filters,
     debug,
   }
 
@@ -935,12 +1001,20 @@ async function runWorkflowCommand(
 
     const indexPath = normalizePathArg(args.index)
     const indexRanges = normalizePathArg(args.indexRanges)
+    const excludeChapters = normalizePathArg(args.excludeSections)
     if (
       flagProvided(args.indexRanges) &&
       typeof args.indexRanges === 'string' &&
       !indexRanges
     ) {
       throw new Error('--index-ranges must not be empty.')
+    }
+    if (
+      flagProvided(args.excludeSections) &&
+      typeof args.excludeSections === 'string' &&
+      !excludeChapters
+    ) {
+      throw new Error('--exclude-sections must not be empty.')
     }
     if (indexPath && indexRanges) {
       throw new Error(
@@ -949,14 +1023,20 @@ async function runWorkflowCommand(
     }
 
     const minChars = normalizeIntegerOption(args.minChar, '--min-char', 0)
+    const previewChars = normalizeIntegerOption(
+      args.previewChars,
+      '--preview-chars',
+      1,
+    )
+    const previewFlagMode = getPreviewFlagMode(rawArgs)
     const startChapter = normalizeIntegerOption(
-      args.startChapter,
-      '--start-chapter',
+      args.startSection,
+      '--start-section',
       1,
     )
     const endChapter = normalizeIntegerOption(
-      args.endChapter,
-      '--end-chapter',
+      args.endSection,
+      '--end-section',
       1,
     )
 
@@ -966,7 +1046,7 @@ async function runWorkflowCommand(
       startChapter > endChapter
     ) {
       throw new Error(
-        '--start-chapter must be less than or equal to --end-chapter.',
+        '--start-section must be less than or equal to --end-section.',
       )
     }
 
@@ -1017,11 +1097,26 @@ async function runWorkflowCommand(
       sourceKind,
       inputPath,
       ui,
-      settings,
+      settings: {
+        ...settings,
+        epub: {
+          ...settings.epub,
+          preview:
+            previewFlagMode === 'enabled'
+              ? true
+              : previewFlagMode === 'disabled'
+                ? false
+                : typeof previewChars === 'number'
+                  ? true
+                  : settings.epub.preview,
+          previewChars: previewChars ?? settings.epub.previewChars ?? 120,
+        },
+      },
       indexPath,
       indexRanges,
       startChapter,
       endChapter,
+      excludeChapters,
       minChars,
       debug,
       fullFidelity: targetKind === 'json' && fullFidelity,
@@ -1068,11 +1163,12 @@ async function runWorkflowCommand(
 
     const provider =
       (args.provider as SupportedProvider | undefined) ??
-      settings.defaultProvider
-    const providerSettings = settings.providers[provider]
+      settings.generation.defaultProvider
+    const providerSettings = settings.generation.providers[provider]
     const defaultModel =
       providerSettings?.defaultModel ??
-      settings.providers[settings.defaultProvider]?.defaultModel
+      settings.generation.providers[settings.generation.defaultProvider]
+        ?.defaultModel
     const model = (args.model as string | undefined) ?? defaultModel
     const apiKeyLookup = readProviderApiKey(provider)
 
@@ -1099,7 +1195,11 @@ async function runWorkflowCommand(
     const prompt = await runWithSpinner(
       spinner,
       'Loading prompt...',
-      async () => loadPrompt(args.prompt as string | undefined),
+      async () =>
+        loadPrompt(
+          (args.prompt as string | undefined) ??
+            settings.generation.defaultPrompt,
+        ),
     )
 
     const deckTitle =
@@ -1352,7 +1452,7 @@ async function runWorkflowCommand(
   }
 }
 
-const rawArgs = hideBin(process.argv)
+const rawArgs = normalizePreviewCliArgs(hideBin(process.argv))
 
 const cli = yargs(rawArgs)
   .scriptName('pdfanki')

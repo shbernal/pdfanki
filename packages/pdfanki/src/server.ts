@@ -20,7 +20,10 @@ export type ConvertFileOptions = {
   indexRanges?: string
   startChapter?: number
   endChapter?: number
+  excludeChapters?: string
   minChars?: number
+  preview?: boolean
+  previewChars?: number
   provider?: SupportedProvider
   model?: string
   epubFilters?: EpubFilters
@@ -221,6 +224,56 @@ async function resolveIndexEntries(options: {
   return loadIndexFile(indexPath)
 }
 
+function parseExcludeChapters(value?: string): ReadonlySet<number> | undefined {
+  if (typeof value === 'undefined') {
+    return undefined
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    throw new Error('excludeChapters must not be empty.')
+  }
+
+  const parts = trimmed.split(',').map(part => part.trim())
+  const excluded = new Set<number>()
+
+  for (let index = 0; index < parts.length; index++) {
+    const part = parts[index]
+    if (!part) {
+      throw new Error(
+        `Exclude chapters segment ${index + 1} is empty. Use comma-separated "<chapter>" or "<start>-<end>" values.`,
+      )
+    }
+
+    const singleMatch = /^\d+$/.exec(part)
+    if (singleMatch) {
+      excluded.add(Number.parseInt(singleMatch[0], 10))
+      continue
+    }
+
+    const rangeMatch = /^\s*(\d+)\s*-\s*(\d+)\s*$/.exec(part)
+    if (!rangeMatch) {
+      throw new Error(
+        `Exclude chapters segment ${index + 1} must use "<chapter>" or "<start>-<end>" syntax.`,
+      )
+    }
+
+    const start = Number.parseInt(rangeMatch[1], 10)
+    const end = Number.parseInt(rangeMatch[2], 10)
+    if (start > end) {
+      throw new Error(
+        `Exclude chapters segment ${index + 1} has start chapter ${start} greater than end chapter ${end}.`,
+      )
+    }
+
+    for (let chapter = start; chapter <= end; chapter++) {
+      excluded.add(chapter)
+    }
+  }
+
+  return excluded
+}
+
 function applyMinCharsFilter(
   book: BookJson,
   minChars?: number,
@@ -275,7 +328,10 @@ export async function convertFileFromPath(
     indexRanges,
     startChapter,
     endChapter,
+    excludeChapters,
     minChars,
+    preview,
+    previewChars,
     epubFilters,
     debug,
   } = options
@@ -305,10 +361,11 @@ export async function convertFileFromPath(
   if (fileType === 'pdf') {
     if (
       typeof startChapter !== 'undefined' ||
-      typeof endChapter !== 'undefined'
+      typeof endChapter !== 'undefined' ||
+      typeof excludeChapters !== 'undefined'
     ) {
       throw new Error(
-        'PDF extraction does not support chapter selection. Use --index or --index-ranges for PDFs.',
+        'PDF extraction does not support section selection. Use --index or --index-ranges for PDFs.',
       )
     }
 
@@ -330,11 +387,17 @@ export async function convertFileFromPath(
   }
 
   const appliedTitleFilters = epubFilters?.titles ?? DEFAULT_EPUB_TITLE_FILTERS
+  const excludedChapterSet = parseExcludeChapters(excludeChapters)
   const epubData = await parseEpubWithEpubLib(
     fileBuffer,
     originalFile.name,
     appliedTitleFilters,
     minChars,
+    preview,
+    previewChars,
+    excludedChapterSet,
+    startChapter,
+    endChapter,
   )
   const transformed = transformEpubResult(
     epubData,
@@ -343,6 +406,7 @@ export async function convertFileFromPath(
     endChapter,
     appliedTitleFilters,
     minChars,
+    excludedChapterSet,
   )
   const cleaned = cleanTransformedResult(transformed)
   return {
