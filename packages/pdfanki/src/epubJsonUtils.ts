@@ -111,7 +111,7 @@ function getChapterRangeReason(
     chapterNumber < selectedRange.startIdx + 1 ||
     chapterNumber > selectedRange.endIdx + 1
   ) {
-    return `outside selected section range ${selectedRange.startIdx + 1}-${selectedRange.endIdx + 1}`
+    return `outside range ${selectedRange.startIdx + 1}-${selectedRange.endIdx + 1}`
   }
 
   return null

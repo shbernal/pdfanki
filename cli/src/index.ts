@@ -188,12 +188,31 @@ function formatDuration(durationMs: number): string {
 }
 
 const JSON_COLOR_ANSI = {
+  blue: '\u001b[34m',
   cyan: '\u001b[36m',
   green: '\u001b[32m',
   yellow: '\u001b[33m',
+  red: '\u001b[31m',
   gray: '\u001b[90m',
+  lightGray: '\u001b[37m',
   reset: '\u001b[0m',
 } as const
+
+const ANSI_UNDERLINE = '\u001b[4m'
+
+function colorizeText(
+  text: string,
+  color: keyof typeof JSON_COLOR_ANSI,
+  enabled: boolean,
+): string {
+  if (!enabled || color === 'reset') return text
+  return `${JSON_COLOR_ANSI[color]}${text}${JSON_COLOR_ANSI.reset}`
+}
+
+function formatSectionHeading(text: string, enabled: boolean): string {
+  if (!enabled) return text
+  return `${ANSI_UNDERLINE}${JSON_COLOR_ANSI.blue}${text}${JSON_COLOR_ANSI.reset}`
+}
 
 function colorizeJson(payload: string, enabled: boolean): string {
   if (!enabled) return payload
@@ -231,6 +250,10 @@ function formatJsonOutput(value: unknown, useColor: boolean): string {
 
 function formatCount(value: number): string {
   return new Intl.NumberFormat('en-US').format(value)
+}
+
+function formatCheckStatus(ok: boolean, useColor: boolean): string {
+  return colorizeText(ok ? 'OK' : 'Failed', ok ? 'green' : 'red', useColor)
 }
 
 function parsePageRange(
@@ -1178,12 +1201,6 @@ async function runWorkflowCommand(
       )
     }
 
-    if (!apiKeyLookup.apiKey) {
-      throw new Error(
-        `Missing API key for provider "${provider}". Set ${apiKeyLookup.envVar} in your environment.`,
-      )
-    }
-
     const hint = PROVIDER_MODEL_HINTS[provider]
     if (model && hint && !hint.test(model)) {
       logger.warn(`Model "${model}" may not belong to provider "${provider}".`)
@@ -1212,8 +1229,42 @@ async function runWorkflowCommand(
       throw new Error('No content sections found to generate flashcards.')
     }
 
+    if (targetKind === 'md' && dryRun) {
+      const apiCheckOk = Boolean(apiKeyLookup.apiKey)
+      const apiCheckDetail = apiCheckOk
+        ? apiKeyLookup.envVar
+        : `missing env var ${apiKeyLookup.envVar}`
+      console.log('')
+      process.stdout.write(
+        `${formatSectionHeading('Dry Run Summary', ui.useColor)}\n`,
+      )
+      logger.info(`AI provider: ${colorizeText(provider, 'blue', ui.useColor)}`)
+      logger.info(`Model: ${colorizeText(model, 'blue', ui.useColor)}`)
+      logger.info(
+        `API check: ${formatCheckStatus(apiCheckOk, ui.useColor)} ${colorizeText(`(${apiCheckDetail})`, 'lightGray', ui.useColor)}`,
+      )
+      logger.info(
+        `Prompt: ${colorizeText(prompt.name, 'blue', ui.useColor)} ${colorizeText(`(${prompt.path})`, 'lightGray', ui.useColor)}`,
+      )
+      logger.info(
+        `Sections: ${colorizeText(formatCount(sections.length), 'blue', ui.useColor)}`,
+      )
+      logger.info(
+        usedDefaultOutputPath
+          ? `Output path: ${colorizeText('cwd', 'blue', ui.useColor)} ${colorizeText(`(${outputPath})`, 'lightGray', ui.useColor)}`
+          : `Output path: ${colorizeText(outputPath, 'blue', ui.useColor)}`,
+      )
+      return
+    }
+
+    if (!apiKeyLookup.apiKey) {
+      throw new Error(
+        `Missing API key for provider "${provider}". Set ${apiKeyLookup.envVar} in your environment.`,
+      )
+    }
+
     logger.info(
-      `Generating flashcards in ${sections.length} section(s) (sequential).`,
+      `Generating flashcards in ${sections.length} section${sections.length === 1 ? '' : 's'}.`,
     )
 
     const generationStart = Date.now()
