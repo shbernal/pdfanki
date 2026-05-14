@@ -138,6 +138,7 @@ function resolveOutputPath(
   target: string | undefined,
   fallbackBaseName: string,
   extension: string,
+  defaultDir?: string,
 ): string {
   if (target) {
     const parsed = parse(target)
@@ -151,7 +152,9 @@ function resolveOutputPath(
     }
   }
 
-  return join(process.cwd(), `${fallbackBaseName}${extension}`)
+  const outputDir =
+    defaultDir && defaultDir !== '.' ? defaultDir : process.cwd()
+  return join(outputDir, `${fallbackBaseName}${extension}`)
 }
 
 function resolveIndexTemplatePath(
@@ -654,6 +657,7 @@ async function handleResetConfig(args: UiBuildArgs): Promise<void> {
 type CliSettings = Awaited<ReturnType<typeof loadSettings>>
 type WorkflowSourceKind = 'pdf' | 'epub' | 'json' | 'md'
 type WorkflowTargetKind = 'json' | 'md' | 'anki'
+type OutputArtifactKind = 'json' | 'md' | 'apkg'
 type StructuredSourceKind = Exclude<WorkflowSourceKind, 'md'>
 
 type WorkflowCommandArgs = UiBuildArgs & {
@@ -1009,11 +1013,16 @@ async function runWorkflowCommand(
     const outputBaseName = toKebabAlnum(parse(inputPath).name || 'deck')
     const outputExtension =
       targetKind === 'json' ? '.json' : targetKind === 'md' ? '.md' : '.apkg'
+    const outputArtifactKind = outputExtension.slice(1) as OutputArtifactKind
+    const defaultOutputDir = normalizePathArg(
+      settings.output.paths[outputArtifactKind] ?? settings.output.path,
+    )
     const explicitOutputPath = normalizePathArg(args.out)
     const outputPath = resolveOutputPath(
       explicitOutputPath,
       outputBaseName,
       outputExtension,
+      defaultOutputDir,
     )
     const usedDefaultOutputPath = !explicitOutputPath
     const deckTitleArg = normalizePathArg(args.deckTitle)
@@ -1251,7 +1260,13 @@ async function runWorkflowCommand(
       )
       logger.info(
         usedDefaultOutputPath
-          ? `Output path: ${colorizeText('cwd', 'blue', ui.useColor)} ${colorizeText(`(${outputPath})`, 'lightGray', ui.useColor)}`
+          ? `Output path: ${colorizeText(
+              defaultOutputDir && defaultOutputDir !== '.'
+                ? defaultOutputDir
+                : 'cwd',
+              'blue',
+              ui.useColor,
+            )} ${colorizeText(`(${outputPath})`, 'lightGray', ui.useColor)}`
           : `Output path: ${colorizeText(outputPath, 'blue', ui.useColor)}`,
       )
       return

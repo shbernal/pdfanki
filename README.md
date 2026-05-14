@@ -42,7 +42,8 @@ Default `settings.json` shape:
 ```json
 {
   "output": {
-    "path": "."
+    "path": ".",
+    "paths": {}
   },
   "generation": {
     "defaultProvider": "gemini",
@@ -102,7 +103,10 @@ How the CLI works
   - `pdfanki pdf json book.pdf --dry-run`
   - `pdfanki pdf md book.pdf --dry-run`
 - Defaults go to the current working directory with filenames derived from the input (`kebab-case`).
+- Set `output.path` to change the default output directory for conversion commands.
+- Set `output.paths.json`, `output.paths.md`, or `output.paths.apkg` to route specific artifact types to dedicated directories.
 - Use `-o, --out` to override the final output path for any conversion command.
+- Output path precedence is `--out`, then `output.paths.<artifact>`, then `output.path`.
 - `... anki` commands only write the requested `.apkg` on success. If markdown generation fails, partial/debug markdown artifacts are still written for diagnosis.
 
 Local fixtures

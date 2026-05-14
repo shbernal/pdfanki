@@ -24,7 +24,8 @@ Default `settings.json` shape:
 ```json
 {
   "output": {
-    "path": "."
+    "path": ".",
+    "paths": {}
   },
   "generation": {
     "defaultProvider": "gemini",
@@ -81,7 +82,10 @@ Default `settings.json` shape:
 ### Usage notes
 
 - Default outputs go to the current working directory with filenames derived from the input (`kebab-case`).
+- Set `output.path` to change the default output directory for conversion commands.
+- Set `output.paths.json`, `output.paths.md`, or `output.paths.apkg` to route specific artifact types to dedicated directories.
 - Use `-o, --out` to override the final output path for any conversion command.
+- Output path precedence is `--out`, then `output.paths.<artifact>`, then `output.path`.
 - `--dry-run` skips writing the requested output and failure artifact files, while keeping the normal terminal feedback.
 - Successful `... anki` commands only write the requested `.apkg`. Partial markdown/debug files are written only when markdown generation fails.
 - Log and UX controls:

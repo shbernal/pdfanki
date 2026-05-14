@@ -54,6 +54,7 @@ Text to process:`
 export const DEFAULT_SETTINGS: Settings = {
   output: {
     path: '.',
+    paths: {},
   },
   generation: {
     defaultProvider: 'gemini',
@@ -92,6 +93,7 @@ export type ProviderSettings = {
 export type Settings = {
   output: {
     path: string
+    paths: Partial<Record<'json' | 'md' | 'apkg', string>>
   }
   generation: {
     defaultProvider: SupportedProvider
@@ -229,6 +231,10 @@ export async function loadSettings(): Promise<Settings> {
           parsed.output?.path ??
           parsed.outputPath ??
           DEFAULT_SETTINGS.output.path,
+        paths: {
+          ...DEFAULT_SETTINGS.output.paths,
+          ...(parsed.output?.paths ?? {}),
+        },
       },
       generation: {
         ...DEFAULT_SETTINGS.generation,
