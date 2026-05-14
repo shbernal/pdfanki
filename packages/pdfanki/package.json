@@ -2,7 +2,7 @@
   "name": "@shbernal/pdfanki",
   "version": "0.2.0",
   "type": "module",
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@11.1.1",
   "description": "Core PDF/EPUB parsing and flashcard generation utilities for pdfanki",
   "author": "shbernal <shbernal.01@gmail.com>",
   "license": "MIT",

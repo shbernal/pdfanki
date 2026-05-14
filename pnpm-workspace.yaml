@@ -2,9 +2,11 @@ packages:
   - cli
   - packages/*
 
-ignoredBuiltDependencies:
-  - protobufjs
+allowBuilds:
+  esbuild: true
+  protobufjs: true
 
 onlyBuiltDependencies:
   - esbuild
+  - protobufjs
   - zipfile

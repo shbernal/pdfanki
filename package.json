@@ -2,7 +2,7 @@
   "name": "pdfanki",
   "version": "0.2.0",
   "private": true,
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@11.1.1",
   "type": "module",
   "scripts": {
     "dev": "turbo dev",
