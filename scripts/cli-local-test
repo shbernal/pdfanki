@@ -78,17 +78,14 @@ pnpm --filter @shbernal/pdfanki-cli pack --pack-destination "${PACK_DIR}"
 cat > "${SMOKE_DIR}/package.json" <<'JSON'
 {
   "name": "pdfanki-cli-local-test",
-  "private": true
+  "private": true,
+  "dependencies": {}
 }
 JSON
 
 echo "=== Smoke install ==="
-pnpm add --dir "${SMOKE_DIR}" \
-  --allow-build=@google/genai \
-  --allow-build=protobufjs \
-  "${CORE_TGZ}" \
-  "${CLI_TGZ}"
-pnpm --dir "${SMOKE_DIR}" exec pdfanki --help >/dev/null
+npm install --prefix "${SMOKE_DIR}" "${CORE_TGZ}" "${CLI_TGZ}"
+"${SMOKE_DIR}/node_modules/.bin/pdfanki" --help >/dev/null
 
 echo "Packages packed to:"
 echo " - ${CORE_TGZ}"

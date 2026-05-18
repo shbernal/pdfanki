@@ -1,0 +1,136 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify packages
+    if: github.repository == 'shbernal/pdfanki' && (github.event_name == 'release' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare "$(node -p "require('./package.json').packageManager")" --activate
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Run local CLI smoke test
+        run: pnpm run cli-local-test
+
+      - name: Verify package contents
+        run: |
+          pnpm --dir packages/pdfanki pack --dry-run
+          pnpm --dir cli pack --dry-run
+
+  publish:
+    name: Publish ${{ matrix.package.name }}
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - name: '@shbernal/pdfanki'
+            directory: packages/pdfanki
+          - name: '@shbernal/pdfanki-cli'
+            directory: cli
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare "$(node -p "require('./package.json').packageManager")" --activate
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Verify package metadata
+        run: |
+          PACKAGE_NAME="$(node -p "require('./${{ matrix.package.directory }}/package.json').name")"
+          PACKAGE_VERSION="$(node -p "require('./${{ matrix.package.directory }}/package.json').version")"
+          ROOT_VERSION="$(node -p "require('./package.json').version")"
+
+          if [ "$PACKAGE_NAME" != "${{ matrix.package.name }}" ]; then
+            echo "::error::Expected package '${{ matrix.package.name }}' but found '$PACKAGE_NAME'."
+            exit 1
+          fi
+
+          if [ "$PACKAGE_VERSION" != "$ROOT_VERSION" ]; then
+            echo "::error::$PACKAGE_NAME version '$PACKAGE_VERSION' does not match root version '$ROOT_VERSION'."
+            exit 1
+          fi
+
+          if [ "${{ github.event_name }}" = "release" ] && [ "${{ github.ref_name }}" != "v$PACKAGE_VERSION" ] && [ "${{ github.ref_name }}" != "$PACKAGE_VERSION" ]; then
+            echo "::error::Release tag '${{ github.ref_name }}' does not match package version '$PACKAGE_VERSION'."
+            exit 1
+          fi
+
+      - name: Verify version is unpublished
+        run: |
+          PACKAGE_NAME="$(node -p "require('./${{ matrix.package.directory }}/package.json').name")"
+          PACKAGE_VERSION="$(node -p "require('./${{ matrix.package.directory }}/package.json').version")"
+
+          if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version >/dev/null 2>&1; then
+            echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION is already published on npm."
+            exit 1
+          fi
+
+      - name: Verify package contents
+        working-directory: ${{ matrix.package.directory }}
+        run: pnpm pack --dry-run
+
+      - name: Publish to npm
+        working-directory: ${{ matrix.package.directory }}
+        run: pnpm publish --access public --provenance --ignore-scripts --no-git-checks
