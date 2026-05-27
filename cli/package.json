@@ -1,12 +1,16 @@
 {
   "name": "@shbernal/pdfanki-cli",
   "version": "0.2.1",
-  "description": "Convert PDF/EPUB files into Anki decks",
+  "description": "Create Anki decks from PDF and EPUB files using NLP with LLMs.",
   "keywords": [
     "anki",
     "pdf",
     "epub",
-    "cli"
+    "llm",
+    "cli",
+    "flashcards",
+    "markdown",
+    "nlp"
   ],
   "type": "module",
   "packageManager": "pnpm@11.1.2",

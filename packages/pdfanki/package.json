@@ -3,7 +3,17 @@
   "version": "0.2.1",
   "type": "module",
   "packageManager": "pnpm@11.1.2",
-  "description": "Core PDF/EPUB parsing and flashcard generation utilities for pdfanki",
+  "description": "Create Anki decks from PDF and EPUB files using NLP with LLMs.",
+  "keywords": [
+    "anki",
+    "pdf",
+    "epub",
+    "llm",
+    "cli",
+    "flashcards",
+    "markdown",
+    "nlp"
+  ],
   "author": "shbernal <shbernal.01@gmail.com>",
   "license": "MIT",
   "homepage": "https://github.com/shbernal/pdfanki",
