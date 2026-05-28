@@ -1,5 +1,8 @@
 # pdfanki
 
+[![weekly downloads](https://img.shields.io/npm/dw/%40shbernal%2Fpdfanki-cli.svg?label=npm%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/pdfanki-cli)
+[![total downloads](https://img.shields.io/npm/dt/%40shbernal%2Fpdfanki-cli.svg?label=npm%20total%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/pdfanki-cli)
+
 Create Anki decks from PDF/EPUB files using NLP with LLMs.
 
 ## Installation

@@ -1,5 +1,8 @@
 # @shbernal/pdfanki
 
+[![weekly downloads](https://img.shields.io/npm/dw/%40shbernal%2Fpdfanki.svg?label=npm%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/pdfanki)
+[![total downloads](https://img.shields.io/npm/dt/%40shbernal%2Fpdfanki.svg?label=npm%20total%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/pdfanki)
+
 Core utilities used by the pdfanki CLI for parsing PDF/EPUB files and generating flashcards.
 
 ## Entrypoints
