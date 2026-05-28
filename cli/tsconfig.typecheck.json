@@ -3,6 +3,7 @@
   "compilerOptions": {
     "rootDir": "..",
     "noEmit": true,
+    "tsBuildInfoFile": "tsconfig.typecheck.tsbuildinfo",
     "paths": {
       "@shbernal/pdfanki": ["../packages/pdfanki/src"],
       "@shbernal/pdfanki/*": ["../packages/pdfanki/src/*"]

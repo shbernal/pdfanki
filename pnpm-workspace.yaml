@@ -2,7 +2,12 @@ packages:
   - cli
   - packages/*
 
+minimumReleaseAgeStrict: true
+minimumReleaseAgeExclude:
+  - "@shbernal/*"
+
 allowBuilds:
+  '@google/genai': true
   esbuild: true
   protobufjs: true
 
