@@ -7,6 +7,10 @@ export function getProviderEnvVarName(provider: string): string {
   return `${provider.trim().toUpperCase()}_API_KEY`
 }
 
+export function providerRequiresApiKey(provider: string): boolean {
+  return provider.trim().toLowerCase() !== 'codex'
+}
+
 /**
  * Read the API key for a provider from process.env.
  * Does not throw; caller can decide whether to enforce.

@@ -47,6 +47,9 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Test
+        run: pnpm run test
+
       - name: Run local CLI smoke test
         run: pnpm run cli-local-test
 

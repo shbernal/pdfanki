@@ -8,6 +8,8 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "test": "turbo test",
+    "test:live:codex": "pnpm build && pnpm --dir cli test:live:codex",
     "typecheck": "turbo typecheck",
     "clean": "turbo clean",
     "format": "turbo format",

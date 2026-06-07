@@ -9,7 +9,7 @@ Core utilities used by the pdfanki CLI for parsing PDF/EPUB files and generating
 
 - `@shbernal/pdfanki/server`: Node-facing helpers to parse files and call models.
   - `convertFileFromPath({ inputPath, type?, indexPath?, indexRanges?, startChapter?, endChapter?, excludeChapters?, epubFilters?, debug? })` → `{ data, text, fileType, sourcePath }`.
-  - `generateFlashcards({ provider, model, apiKey, prompt, content })` → markdown string.
+  - `generateFlashcards({ provider, model, apiKey?, prompt, content, codex? })` → markdown string. The experimental `codex` provider uses the local Codex CLI login instead of an API key and accepts `codex.reasoningEffort` / `codex.profile` overrides.
   - `bookJsonToPlainText(book)` to flatten parsed sections for prompting.
 - `@shbernal/pdfanki/client`: Browser-safe helpers for JSON validation/editing.
   - `validateJsonStructure(bookJson)` plus undo/delete helpers for sections.
