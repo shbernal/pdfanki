@@ -7,11 +7,13 @@ Project layout
 - `cli/`: The published CLI (`@shbernal/pdfanki-cli`)
 - `fixtures/local/`: Gitignored local real-file fixtures for CLI smoke tests
 - `packages/`: Shared libraries used by the CLI
+- `tests/books/public-domain/`: Tracked public-domain EPUB inputs for deterministic tests
 - `scripts/`, `turbo.json`, `pnpm-workspace.yaml`: Repo-level tooling
 
 Requirements
 - Node.js >= 20
-- Provider API key exported in your shell: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`
+- Provider API key exported in your shell for API-backed providers: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`
+- Optional experimental Codex provider: locally installed official `codex` CLI with an existing login; pdfanki calls `codex exec` and does not read Codex auth files directly
 
 Install (CLI)
 ```bash
@@ -23,6 +25,11 @@ Local repo workflows
   - `pnpm pdfanki-local -- epub json /path/to/book.epub`
 - Run the pack/install smoke test from the project root:
   - `pnpm cli-local-test`
+- Run deterministic tests against tracked public-domain books and fake model providers:
+  - `pnpm test`
+- Generate live Codex outputs from tracked public-domain books under `.tmp/live-codex/`:
+  - `pnpm test:live:codex`
+  - Override the live run reasoning effort with `PDFANKI_LIVE_CODEX_REASONING_EFFORT=high pnpm test:live:codex`
 - `pnpm cli-local-test` defaults to writing tarballs under `.tmp/packed/`.
 - Override the pack output directory when needed:
   - `PDFANKI_PACK_DIR=/tmp/pdfanki-packed pnpm cli-local-test`
@@ -51,6 +58,10 @@ Default `settings.json` shape:
     "providers": {
       "gemini": {
         "defaultModel": "gemini-3-pro-preview"
+      },
+      "codex": {
+        "defaultModel": "gpt-5.4",
+        "reasoningEffort": "medium"
       }
     }
   },
@@ -78,6 +89,8 @@ How the CLI works
   - `pdfanki pdf md book.pdf --provider deepseek --model deepseek-chat`
 - Example: generate markdown from a PDF with OpenRouter
   - `pdfanki pdf md book.pdf --provider openrouter --model z-ai/glm-5`
+- Example: generate markdown through the experimental local Codex CLI provider
+  - `pdfanki pdf md book.pdf --provider codex --model gpt-5.4 --codex-reasoning-effort high`
 - Example: extract JSON from an EPUB section range
   - `pdfanki epub json book.epub --start-section 3 --end-section 5 --min-char 300`
 - Example: extract JSON from an EPUB while skipping specific sections
@@ -103,6 +116,8 @@ How the CLI works
   - `pdfanki pdf json book.pdf --dry-run`
   - `pdfanki pdf md book.pdf --dry-run`
 - Defaults go to the current working directory with filenames derived from the input (`kebab-case`).
+- The `codex` provider is experimental. It pipes each section prompt into `codex exec --ephemeral --skip-git-repo-check`, captures the final Markdown from stdout, and relies on your existing Codex CLI authentication rather than `OPENAI_API_KEY`.
+- For Codex, `generation.providers.codex.defaultModel` maps to `codex exec --model`, and `generation.providers.codex.reasoningEffort` maps to a per-run `model_reasoning_effort` config override. CLI flags `--model`, `--codex-reasoning-effort`, and `--codex-profile` take precedence over `settings.json` and do not edit `~/.codex/config.toml`.
 - Set `output.path` to change the default output directory for conversion commands.
 - Set `output.paths.json`, `output.paths.md`, or `output.paths.apkg` to route specific artifact types to dedicated directories.
 - Use `-o, --out` to override the final output path for any conversion command.

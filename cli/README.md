@@ -9,7 +9,8 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 ### Requirements
 
 - Node >=20
-- Provider API keys via environment variables: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`
+- Provider API keys via environment variables for API-backed providers: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`
+- Optional experimental Codex provider: locally installed official `codex` CLI with an existing login; pdfanki calls `codex exec` and does not read Codex auth files directly
 
 ## Config (XDG)
 
@@ -33,6 +34,10 @@ Default `settings.json` shape:
     "providers": {
       "gemini": {
         "defaultModel": "gemini-3-pro-preview"
+      },
+      "codex": {
+        "defaultModel": "gpt-5.4",
+        "reasoningEffort": "medium"
       }
     }
   },
@@ -57,6 +62,7 @@ Default `settings.json` shape:
 - Create an Anki deck from a PDF: `pdfanki pdf anki file.pdf --deck-title "Title"`
 - Use DeepSeek explicitly (with `DEEPSEEK_API_KEY` set): `pdfanki pdf md file.pdf --provider deepseek --model deepseek-chat`
 - Use OpenRouter explicitly (with `OPENROUTER_API_KEY` set): `pdfanki pdf md file.pdf --provider openrouter --model z-ai/glm-5`
+- Use the experimental local Codex CLI provider: `pdfanki pdf md file.pdf --provider codex --model gpt-5.4 --codex-reasoning-effort high`
 - Extract JSON from an EPUB section slice: `pdfanki epub json file.epub --start-section 3 --end-section 5 --min-char 300`
 - Extract JSON from an EPUB while skipping specific sections: `pdfanki epub json file.epub --exclude-sections "3,7,19,25-27"`
 - Extract JSON from an EPUB with section previews: `pdfanki epub json file.epub --preview`
@@ -82,6 +88,8 @@ Default `settings.json` shape:
 ### Usage notes
 
 - Default outputs go to the current working directory with filenames derived from the input (`kebab-case`).
+- The `codex` provider is experimental. It pipes each section prompt into `codex exec --ephemeral --skip-git-repo-check`, captures the final Markdown from stdout, and relies on your existing Codex CLI authentication rather than `OPENAI_API_KEY`.
+- Codex `defaultModel` maps to `codex exec --model`, and `reasoningEffort` maps to a per-run `model_reasoning_effort` config override. CLI flags `--model`, `--codex-reasoning-effort`, and `--codex-profile` override `settings.json` without editing `~/.codex/config.toml`.
 - Set `output.path` to change the default output directory for conversion commands.
 - Set `output.paths.json`, `output.paths.md`, or `output.paths.apkg` to route specific artifact types to dedicated directories.
 - Use `-o, --out` to override the final output path for any conversion command.

@@ -429,6 +429,19 @@ export {
 }
 export { generateFlashcards, bookJsonToPlainText } from './providers.js'
 export {
+  buildCodexExecArgs,
+  buildCodexExecPrompt,
+  callCodexProvider,
+  CODEX_REASONING_EFFORTS,
+  runCodexCli,
+  type BuildCodexExecArgsOptions,
+  type CodexCliRunner,
+  type CodexCliRunnerOptions,
+  type CodexCliRunnerResult,
+  type CodexProviderOptions,
+  type CodexReasoningEffort,
+} from './codexProvider.js'
+export {
   DEFAULT_EPUB_TITLE_FILTERS,
   type EpubFilters,
   type EpubTitleFilter,

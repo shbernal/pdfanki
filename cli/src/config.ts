@@ -13,6 +13,9 @@ const CONFIG_DIRNAME = 'pdfanki'
 const DEFAULT_PROMPT_NAME = 'default'
 const DEFAULT_PROMPT_FILENAME = `${DEFAULT_PROMPT_NAME}.md`
 const PROMPT_NAME_PATTERN = /^[a-zA-Z0-9._-]+$/
+const CODEX_PROFILE_PATTERN = /^[A-Za-z0-9_-]+$/
+export const CODEX_REASONING_EFFORTS = ['low', 'medium', 'high'] as const
+export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number]
 const DEFAULT_PROMPT_CONTENT = `Create flashcards in Markdown using this exact format:
 
 ## <front of card text>
@@ -75,6 +78,10 @@ export const DEFAULT_SETTINGS: Settings = {
       openrouter: {
         defaultModel: 'z-ai/glm-5',
       },
+      codex: {
+        defaultModel: 'gpt-5.4',
+        reasoningEffort: 'medium',
+      },
     },
   },
   epub: {
@@ -88,6 +95,8 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export type ProviderSettings = {
   defaultModel: string
+  reasoningEffort?: string
+  profile?: string
 }
 
 export type Settings = {
@@ -272,6 +281,47 @@ export function sanitizePromptName(rawName?: string): string {
   }
 
   return name
+}
+
+export function normalizeCodexReasoningEffort(
+  value: unknown,
+  sourceLabel: string,
+): CodexReasoningEffort | undefined {
+  if (typeof value === 'undefined' || value === null) return undefined
+  if (typeof value !== 'string') {
+    throw new Error(
+      `${sourceLabel} must be one of: ${CODEX_REASONING_EFFORTS.join(', ')}.`,
+    )
+  }
+
+  const normalized = value.trim().toLowerCase()
+  if (CODEX_REASONING_EFFORTS.includes(normalized as CodexReasoningEffort)) {
+    return normalized as CodexReasoningEffort
+  }
+
+  throw new Error(
+    `${sourceLabel} must be one of: ${CODEX_REASONING_EFFORTS.join(', ')}.`,
+  )
+}
+
+export function normalizeCodexProfile(
+  value: unknown,
+  sourceLabel: string,
+): string | undefined {
+  if (typeof value === 'undefined' || value === null) return undefined
+  if (typeof value !== 'string') {
+    throw new Error(
+      `${sourceLabel} must contain only letters, numbers, hyphens, or underscores.`,
+    )
+  }
+
+  const normalized = value.trim()
+  if (normalized.length === 0) return undefined
+  if (CODEX_PROFILE_PATTERN.test(normalized)) return normalized
+
+  throw new Error(
+    `${sourceLabel} must contain only letters, numbers, hyphens, or underscores.`,
+  )
 }
 
 export async function loadPrompt(rawName?: string): Promise<{

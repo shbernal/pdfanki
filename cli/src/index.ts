@@ -17,10 +17,14 @@ import {
   type ConvertFileOptions,
 } from './pdfankiRuntime.js'
 import {
+  CODEX_REASONING_EFFORTS,
   ensureConfig,
   loadPrompt,
   loadSettings,
+  normalizeCodexProfile,
+  normalizeCodexReasoningEffort,
   resetConfig,
+  type CodexReasoningEffort,
   type SupportedProvider,
 } from './config.js'
 import {
@@ -28,7 +32,7 @@ import {
   listLocalPrompts,
   listRemotePrompts,
 } from './prompts.js'
-import { readProviderApiKey } from './env.js'
+import { providerRequiresApiKey, readProviderApiKey } from './env.js'
 import {
   parseFlashcardMarkdown,
   renderFlashcards,
@@ -520,9 +524,13 @@ async function runWithProgressHeartbeat<T>(options: {
 type GenerateFlashcardsRequest = {
   provider: SupportedProvider
   model: string
-  apiKey: string
+  apiKey?: string
   prompt: string
   content: string
+  codex?: {
+    reasoningEffort?: CodexReasoningEffort
+    profile?: string
+  }
 }
 
 async function generateFlashcards(
@@ -675,6 +683,8 @@ type WorkflowCommandArgs = UiBuildArgs & {
   provider?: unknown
   prompt?: unknown
   model?: unknown
+  codexReasoningEffort?: unknown
+  codexProfile?: unknown
   deckTitle?: unknown
   debug?: unknown
   dryRun?: unknown
@@ -693,6 +703,7 @@ const PROVIDER_MODEL_HINTS: Record<SupportedProvider, RegExp> = {
   deepseek: /^deepseek/i,
   openrouter:
     /^(?:openrouter\/)?[a-z0-9._-]+\/[a-z0-9._-]+(?:\/[a-z0-9._-]+)?$/i,
+  codex: /^(?:gpt|o\d|codex)/i,
 }
 
 function normalizeRequiredInputPath(value: unknown): string {
@@ -841,9 +852,16 @@ function withGenerationOptions<T>(y: Argv<T>): Argv<T> {
   return y
     .option('provider', {
       type: 'string',
-      choices: ['gemini', 'anthropic', 'openai', 'deepseek', 'openrouter'],
+      choices: [
+        'gemini',
+        'anthropic',
+        'openai',
+        'deepseek',
+        'openrouter',
+        'codex',
+      ],
       describe:
-        'AI provider (expects API key in PROVIDER_API_KEY env var). Defaults to settings.json.',
+        'AI provider. API providers expect PROVIDER_API_KEY; experimental codex uses the local Codex CLI login. Defaults to settings.json.',
     })
     .option('prompt', {
       alias: 'p',
@@ -855,6 +873,17 @@ function withGenerationOptions<T>(y: Argv<T>): Argv<T> {
       alias: 'm',
       type: 'string',
       describe: 'Model name for the chosen provider.',
+    })
+    .option('codex-reasoning-effort', {
+      type: 'string',
+      choices: [...CODEX_REASONING_EFFORTS],
+      describe:
+        'Codex-only model_reasoning_effort override. Overrides Codex config.toml for this run.',
+    })
+    .option('codex-profile', {
+      type: 'string',
+      describe:
+        'Codex-only config profile passed to codex exec --profile. The pdfanki --model/defaultModel still takes precedence for model selection.',
     })
 }
 
@@ -1202,7 +1231,48 @@ async function runWorkflowCommand(
       settings.generation.providers[settings.generation.defaultProvider]
         ?.defaultModel
     const model = (args.model as string | undefined) ?? defaultModel
-    const apiKeyLookup = readProviderApiKey(provider)
+    const requiresApiKey = providerRequiresApiKey(provider)
+    const apiKeyLookup = requiresApiKey ? readProviderApiKey(provider) : null
+    const hasCodexReasoningEffortFlag =
+      typeof args.codexReasoningEffort !== 'undefined'
+    const hasCodexProfileFlag = typeof args.codexProfile !== 'undefined'
+
+    if (
+      provider !== 'codex' &&
+      (hasCodexReasoningEffortFlag || hasCodexProfileFlag)
+    ) {
+      throw new Error(
+        '--codex-reasoning-effort and --codex-profile can only be used with provider "codex".',
+      )
+    }
+
+    const codexReasoningEffort =
+      provider === 'codex'
+        ? normalizeCodexReasoningEffort(
+            hasCodexReasoningEffortFlag
+              ? args.codexReasoningEffort
+              : providerSettings?.reasoningEffort,
+            hasCodexReasoningEffortFlag
+              ? '--codex-reasoning-effort'
+              : 'settings.generation.providers.codex.reasoningEffort',
+          )
+        : undefined
+    const codexProfile =
+      provider === 'codex'
+        ? normalizeCodexProfile(
+            hasCodexProfileFlag ? args.codexProfile : providerSettings?.profile,
+            hasCodexProfileFlag
+              ? '--codex-profile'
+              : 'settings.generation.providers.codex.profile',
+          )
+        : undefined
+    const codexOptions =
+      provider === 'codex'
+        ? {
+            reasoningEffort: codexReasoningEffort,
+            profile: codexProfile,
+          }
+        : undefined
 
     if (!model) {
       throw new Error(
@@ -1217,6 +1287,14 @@ async function runWorkflowCommand(
 
     logger.debug(`Provider: ${provider}`)
     logger.debug(`Model: ${model}`)
+    if (provider === 'codex') {
+      logger.debug(
+        `Codex reasoning effort: ${codexOptions?.reasoningEffort ?? 'inherited from Codex config'}`,
+      )
+      logger.debug(
+        `Codex profile: ${codexOptions?.profile ?? 'inherited from Codex config'}`,
+      )
+    }
 
     const prompt = await runWithSpinner(
       spinner,
@@ -1239,16 +1317,26 @@ async function runWorkflowCommand(
     }
 
     if (targetKind === 'md' && dryRun) {
-      const apiCheckOk = Boolean(apiKeyLookup.apiKey)
-      const apiCheckDetail = apiCheckOk
-        ? apiKeyLookup.envVar
-        : `missing env var ${apiKeyLookup.envVar}`
+      const apiCheckOk = !requiresApiKey || Boolean(apiKeyLookup?.apiKey)
+      const apiCheckDetail = requiresApiKey
+        ? apiCheckOk
+          ? apiKeyLookup!.envVar
+          : `missing env var ${apiKeyLookup!.envVar}`
+        : 'uses local Codex CLI auth; no PROVIDER_API_KEY required'
       console.log('')
       process.stdout.write(
         `${formatSectionHeading('Dry Run Summary', ui.useColor)}\n`,
       )
       logger.info(`AI provider: ${colorizeText(provider, 'blue', ui.useColor)}`)
       logger.info(`Model: ${colorizeText(model, 'blue', ui.useColor)}`)
+      if (provider === 'codex') {
+        logger.info(
+          `Codex reasoning effort: ${colorizeText(codexOptions?.reasoningEffort ?? 'inherited', 'blue', ui.useColor)}`,
+        )
+        logger.info(
+          `Codex profile: ${colorizeText(codexOptions?.profile ?? 'inherited', 'blue', ui.useColor)}`,
+        )
+      }
       logger.info(
         `API check: ${formatCheckStatus(apiCheckOk, ui.useColor)} ${colorizeText(`(${apiCheckDetail})`, 'lightGray', ui.useColor)}`,
       )
@@ -1272,9 +1360,9 @@ async function runWorkflowCommand(
       return
     }
 
-    if (!apiKeyLookup.apiKey) {
+    if (requiresApiKey && !apiKeyLookup?.apiKey) {
       throw new Error(
-        `Missing API key for provider "${provider}". Set ${apiKeyLookup.envVar} in your environment.`,
+        `Missing API key for provider "${provider}". Set ${apiKeyLookup!.envVar} in your environment.`,
       )
     }
 
@@ -1339,17 +1427,19 @@ async function runWorkflowCommand(
                   generateFlashcards({
                     provider,
                     model,
-                    apiKey: apiKeyLookup.apiKey!,
+                    apiKey: apiKeyLookup?.apiKey,
                     prompt: prompt.contents,
                     content: sectionText,
+                    codex: codexOptions,
                   }),
               })
             : await generateFlashcards({
                 provider,
                 model,
-                apiKey: apiKeyLookup.apiKey!,
+                apiKey: apiKeyLookup?.apiKey,
                 prompt: prompt.contents,
                 content: sectionText,
+                codex: codexOptions,
               })
 
           rawResponse = response

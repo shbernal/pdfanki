@@ -1,4 +1,8 @@
 import type { BookJson } from './types/flashcards.js'
+import {
+  callCodexProvider,
+  type CodexReasoningEffort,
+} from './codexProvider.js'
 
 export type SupportedProvider =
   | 'gemini'
@@ -6,13 +10,18 @@ export type SupportedProvider =
   | 'openai'
   | 'deepseek'
   | 'openrouter'
+  | 'codex'
 
 export type GenerateFlashcardsOptions = {
   provider: SupportedProvider
   model: string
-  apiKey: string
+  apiKey?: string
   prompt: string
   content: string
+  codex?: {
+    reasoningEffort?: CodexReasoningEffort
+    profile?: string
+  }
 }
 
 const GEMINI_TIMEOUT_MS = 180_000
@@ -36,7 +45,7 @@ export async function generateFlashcards(
   options: GenerateFlashcardsOptions,
 ): Promise<string> {
   const { provider } = options
-  if (!options.apiKey) {
+  if (provider !== 'codex' && !options.apiKey) {
     throw new Error(`Missing API key for provider "${provider}".`)
   }
 
@@ -51,6 +60,8 @@ export async function generateFlashcards(
       return callDeepSeek(options)
     case 'openrouter':
       return callOpenRouter(options)
+    case 'codex':
+      return callCodex(options)
     default:
       throw new Error(`Unsupported provider "${provider}".`)
   }
@@ -153,6 +164,16 @@ async function callOpenRouter(
   })
 }
 
+async function callCodex(options: GenerateFlashcardsOptions): Promise<string> {
+  return callCodexProvider({
+    prompt: options.prompt,
+    content: options.content,
+    model: options.model,
+    reasoningEffort: options.codex?.reasoningEffort,
+    profile: options.codex?.profile,
+  })
+}
+
 type OpenAICompatibleOptions = GenerateFlashcardsOptions & {
   providerName: string
   baseURL?: string
@@ -164,6 +185,9 @@ async function callOpenAICompatible(
 ): Promise<string> {
   const { prompt, content, apiKey, model } = options
   const { providerName, baseURL, defaultHeaders } = options
+  if (!apiKey) {
+    throw new Error(`Missing API key for provider "${options.provider}".`)
+  }
   const OpenAI = (await import('openai')).default
   const client = new OpenAI({
     apiKey,
