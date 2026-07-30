@@ -49,12 +49,15 @@ export default defineConfig([
     },
   },
   globalIgnores([
-    'dist/**',
-    'node_modules/**',
-    'coverage/**',
-    '.turbo/**',
-    '.tmp/**',
+    '**/dist/**',
+    '**/node_modules/**',
+    '**/coverage/**',
+    '**/.turbo/**',
+    '**/.tmp/**',
+    '**/*.tsbuildinfo',
+    // local-only, gitignored working directories
     'fixtures/**',
-    '*.tsbuildinfo',
+    'docs/**',
+    'test/**',
   ]),
 ])
