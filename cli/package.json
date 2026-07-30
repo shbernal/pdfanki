@@ -27,8 +27,7 @@
     "test": "node --test tests/*.test.mjs",
     "test:live:codex": "node --test tests/liveCodexProviderCli.mjs",
     "typecheck": "tsc -p tsconfig.typecheck.json",
-    "lint": "eslint src",
-    "format": "prettier --list-different . | xargs -r prettier --write"
+    "lint": "eslint src --max-warnings 0"
   },
   "author": "shbernal <shbernal.01@gmail.com>",
   "homepage": "https://github.com/shbernal/pdfanki",

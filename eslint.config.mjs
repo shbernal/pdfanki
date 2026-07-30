@@ -1,9 +1,22 @@
+import js from '@eslint/js'
 import { defineConfig, globalIgnores } from 'eslint/config'
 import tsPlugin from '@typescript-eslint/eslint-plugin'
 import tsParser from '@typescript-eslint/parser'
 import unusedImports from 'eslint-plugin-unused-imports'
+import globals from 'globals'
 
 export default defineConfig([
+  {
+    files: ['**/*.{js,mjs,cjs}'],
+    ...js.configs.recommended,
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
   {
     files: ['**/*.ts'],
     languageOptions: {
@@ -39,6 +52,9 @@ export default defineConfig([
     'dist/**',
     'node_modules/**',
     'coverage/**',
+    '.turbo/**',
+    '.tmp/**',
+    'fixtures/**',
     '*.tsbuildinfo',
   ]),
 ])

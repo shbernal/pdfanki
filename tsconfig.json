@@ -1,7 +1,4 @@
 {
   "files": [],
-  "references": [
-    { "path": "./cli" },
-    { "path": "./packages/pdfanki" }
-  ]
+  "references": [{ "path": "./cli" }, { "path": "./packages/pdfanki" }]
 }

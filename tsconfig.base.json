@@ -10,6 +10,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "strict": false,
+    "strictNullChecks": true,
     "types": ["node"]
   }
 }

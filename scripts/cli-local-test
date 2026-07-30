@@ -60,7 +60,6 @@ pnpm --filter @shbernal/pdfanki run clean
 pnpm install --filter @shbernal/pdfanki...
 pnpm --filter @shbernal/pdfanki run typecheck
 pnpm --filter @shbernal/pdfanki run lint
-pnpm --filter @shbernal/pdfanki run format
 pnpm --filter @shbernal/pdfanki run build
 pnpm --filter @shbernal/pdfanki pack --pack-destination "${PACK_DIR}"
 
@@ -71,7 +70,6 @@ pnpm --filter @shbernal/pdfanki-cli run clean
 pnpm install --filter @shbernal/pdfanki-cli...
 pnpm --filter @shbernal/pdfanki-cli run typecheck
 pnpm --filter @shbernal/pdfanki-cli run lint
-pnpm --filter @shbernal/pdfanki-cli run format
 pnpm --filter @shbernal/pdfanki-cli run build
 pnpm --filter @shbernal/pdfanki-cli pack --pack-destination "${PACK_DIR}"
 

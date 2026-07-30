@@ -4,14 +4,16 @@ packages:
 
 minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
-  - "@shbernal/*"
+  - '@shbernal/*'
 
 allowBuilds:
   '@google/genai': true
   esbuild: true
+  lefthook: true
   protobufjs: true
 
 onlyBuiltDependencies:
   - esbuild
+  - lefthook
   - protobufjs
   - zipfile
