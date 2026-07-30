@@ -5,6 +5,36 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import { DEFAULT_EPUB_TITLE_FILTERS } from './epubFilters.js'
 
+/** A chapter as pulled out of the EPUB, before content filtering. */
+type ExtractedChapter = {
+  index: number
+  title: string
+  text: string
+  originalIndex: number
+  error?: string
+}
+
+/** A chapter kept for conversion. */
+type ContentChapter = {
+  index: number
+  title: string
+  text: string
+  originalChapterIndex: number
+}
+
+/** A chapter dropped by a filter, with why. */
+type FilteredChapter = {
+  originalIndex: number
+  title: string
+  reason?: string
+}
+
+/** A title filter rule compiled to a predicate. */
+type TitleMatcher = {
+  reason: string
+  test: (titleLower: string) => boolean
+}
+
 const ANSI_BRIGHT_BLUE = '\u001b[94m'
 const ANSI_BRIGHT_GREEN = '\u001b[92m'
 const ANSI_BRIGHT_RED = '\u001b[91m'
@@ -174,7 +204,7 @@ export function parseEpubWithEpubLib(
       )
 
       // Extract text from all chapters
-      const extractedChapters = []
+      const extractedChapters: ExtractedChapter[] = []
       for (let i = 0; i < chapters.length; i++) {
         const chapter = chapters[i]
         const chapterNumber = i + 1
@@ -316,8 +346,8 @@ export function transformEpubResult(
     endChapter,
   )
 
-  const content = []
-  const filteredOut = []
+  const content: ContentChapter[] = []
+  const filteredOut: FilteredChapter[] = []
   let contentNumber = 1
 
   const titleMatchers = buildTitleMatchers(titleFilters)
@@ -446,7 +476,7 @@ function cleanHtmlText(htmlContent) {
  */
 function buildTitleMatchers(filters) {
   const rules = filters ?? []
-  const matchers = []
+  const matchers: TitleMatcher[] = []
 
   for (const rule of rules) {
     if (!rule) continue

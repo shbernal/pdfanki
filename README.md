@@ -4,6 +4,7 @@ pdfanki
 Create Anki decks from PDF/EPUB files using NLP with LLMs. This repository hosts the CLI plus shared packages and tooling that power the end-to-end workflow.
 
 Project layout
+
 - `cli/`: The published CLI (`@shbernal/pdfanki-cli`)
 - `fixtures/local/`: Gitignored local real-file fixtures for CLI smoke tests
 - `packages/`: Shared libraries used by the CLI
@@ -11,16 +12,19 @@ Project layout
 - `scripts/`, `turbo.json`, `pnpm-workspace.yaml`: Repo-level tooling
 
 Requirements
+
 - Node.js >= 20
 - Provider API key exported in your shell for API-backed providers: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`
 - Optional experimental Codex provider: locally installed official `codex` CLI with an existing login; pdfanki calls `codex exec` and does not read Codex auth files directly
 
 Install (CLI)
+
 ```bash
 pnpm i -g @shbernal/pdfanki-cli
 ```
 
 Local repo workflows
+
 - Run the local-dev CLI against repo sources from the project root:
   - `pnpm pdfanki-local -- epub json /path/to/book.epub`
 - Run the pack/install smoke test from the project root:
@@ -39,6 +43,7 @@ Local repo workflows
   - `PDFANKI_CONFIG_PROMPTS_DIR=/path/to/prompts pnpm fetch-config-prompts`
 
 Config (XDG)
+
 - Config dir: `$XDG_CONFIG_HOME/pdfanki/` or `~/.pdfanki/` if unset
 - Auto-created on first run:
   - `settings.json` with nested `output`, `generation`, and `epub` sections
@@ -69,15 +74,14 @@ Default `settings.json` shape:
     "preview": false,
     "previewChars": 120,
     "filters": {
-      "titles": [
-        { "type": "regex", "pattern": "^contents?$", "flags": "i" }
-      ]
+      "titles": [{ "type": "regex", "pattern": "^contents?$", "flags": "i" }]
     }
   }
 }
 ```
 
 How the CLI works
+
 - The CLI is organized around source commands and target subcommands:
   - `pdfanki pdf <json|md|anki> <input>`
   - `pdfanki epub <json|md|anki> <input>`
@@ -125,6 +129,7 @@ How the CLI works
 - `... anki` commands only write the requested `.apkg` on success. If markdown generation fails, partial/debug markdown artifacts are still written for diagnosis.
 
 Local fixtures
+
 - Put local real files under `fixtures/local/`.
 - Expected names:
   - `fixtures/local/sample.pdf`
@@ -133,6 +138,7 @@ Local fixtures
 - These files are gitignored so you can keep private or large source documents out of the repo.
 
 PDF index helpers
+
 - `pdfanki index template <count> [out]`: Generate an `index.json` scaffold.
 - `pdfanki pdf json|md|anki <input> --index <path>` expects a JSON array of chapter ranges (1-based pages, inclusive). `title` is optional:
 

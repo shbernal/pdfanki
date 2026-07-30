@@ -7,12 +7,13 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "lint": "turbo lint",
+    "lint": "eslint . --max-warnings 0",
     "test": "turbo test",
     "test:live:codex": "pnpm build && pnpm --dir cli test:live:codex",
     "typecheck": "turbo typecheck",
     "clean": "turbo clean",
-    "format": "turbo format",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "fetch-config-prompts": "./scripts/fetch-config-prompts",
     "cli-local-test": "./scripts/cli-local-test",
     "pdfanki-local": "env PDFANKI_LOCAL_DEV=1 PDFANKI_CALLER_CWD=\"$INIT_CWD\" pnpm --dir cli exec node --import tsx src/index.ts"
@@ -24,6 +25,8 @@
     "@typescript-eslint/parser": "^8.65.0",
     "eslint": "^10.8.0",
     "eslint-plugin-unused-imports": "^4.4.1",
+    "globals": "^17.8.0",
+    "lefthook": "^2.1.10",
     "prettier": "^3.9.6",
     "turbo": "^2.10.7",
     "typescript": "^6.0.3"

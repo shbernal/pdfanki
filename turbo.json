@@ -8,17 +8,11 @@
     "dev": {
       "cache": false
     },
-    "lint": {
-      "outputs": []
-    },
     "test": {
       "dependsOn": ["build", "^build"],
       "outputs": []
     },
     "typecheck": {
-      "outputs": []
-    },
-    "format": {
       "outputs": []
     },
     "clean": {

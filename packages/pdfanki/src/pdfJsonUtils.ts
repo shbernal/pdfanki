@@ -1,6 +1,16 @@
 // lib/pdfJsonUtils.js
 import { PDFParse, VerbosityLevel } from 'pdf-parse'
 
+/** One extracted unit of PDF text: a chapter, or the whole document. */
+type PdfSection = {
+  index: number
+  title: string
+  text: string
+  pageRange?: string
+  pageCount?: number
+  processedPages?: number
+}
+
 /**
  * Parse PDF using pdf-parse (pdf.js under the hood) and collect per-page text.
  * @param fileBuffer Raw PDF buffer
@@ -52,7 +62,7 @@ export function transformPdf2jsonResult(parsedData, originalFile, index) {
   const pages = pdfData.Pages || []
   const meta = pdfData.Meta || {}
 
-  let content = []
+  let content: PdfSection[] = []
   let processingMethod = 'pdf2json'
 
   if (index && Array.isArray(index)) {
@@ -117,7 +127,7 @@ export function transformPdfParseResult(parsedData, originalFile, index) {
   const meta = parsedData.info || {}
   const rawTextContent = parsedData.rawTextContent
 
-  let content = []
+  let content: PdfSection[] = []
   let processingMethod = 'pdf-parse'
 
   if (index && Array.isArray(index)) {
@@ -184,7 +194,7 @@ export function transformPdfParseResult(parsedData, originalFile, index) {
  * Process PDF with chapter index
  */
 function processWithIndex(pages, index) {
-  const content = []
+  const content: PdfSection[] = []
 
   index.forEach((chapter, chapterIndex) => {
     const title =
@@ -232,7 +242,7 @@ function processWithIndex(pages, index) {
  * Process PDF with chapter index using plain page text.
  */
 function processWithIndexFromPageText(pageTexts, index) {
-  const content = []
+  const content: PdfSection[] = []
   const totalPages = pageTexts.length
 
   index.forEach((chapter, chapterIndex) => {

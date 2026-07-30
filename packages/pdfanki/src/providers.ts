@@ -209,12 +209,15 @@ async function callOpenAICompatible(
 type OpenAICompatibleResponse = {
   choices?: Array<{
     message?: {
+      // the OpenAI SDK types `content` as nullable; `extractOpenAICompatibleText`
+      // already falls through to `null` for anything that is not a string or array
       content?:
         | string
         | Array<{
             type?: string
             text?: string
           }>
+        | null
     }
   }>
 }
