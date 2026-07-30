@@ -7,7 +7,7 @@ import {
 export type SupportedProvider =
   'gemini' | 'anthropic' | 'openai' | 'deepseek' | 'openrouter' | 'codex'
 
-export type GenerateFlashcardsOptions = {
+export interface GenerateFlashcardsOptions {
   provider: SupportedProvider
   model: string
   apiKey?: string
@@ -58,7 +58,7 @@ export async function generateFlashcards(
     case 'codex':
       return callCodex(options)
     default:
-      throw new Error(`Unsupported provider "${provider}".`)
+      throw new Error(`Unsupported provider "${String(provider)}".`)
   }
 }
 
@@ -206,20 +206,20 @@ async function callOpenAICompatible(
   return text.trim()
 }
 
-type OpenAICompatibleResponse = {
-  choices?: Array<{
+interface OpenAICompatibleResponse {
+  choices?: {
     message?: {
       // the OpenAI SDK types `content` as nullable; `extractOpenAICompatibleText`
       // already falls through to `null` for anything that is not a string or array
       content?:
         | string
-        | Array<{
+        | {
             type?: string
             text?: string
-          }>
+          }[]
         | null
     }
-  }>
+  }[]
 }
 
 function extractOpenAICompatibleText(
@@ -249,13 +249,13 @@ function isTimeoutError(error: unknown): boolean {
 
   const message = err.message?.toLowerCase()
   if (err.name === 'AbortError') return true
-  if (message && message.includes('timeout')) return true
+  if (message?.includes('timeout')) return true
 
   const cause = err.cause as
-    { message?: string; code?: unknown; name?: string } | undefined
+    { message?: string; code?: string | number; name?: string } | undefined
   const causeMessage = cause?.message?.toLowerCase()
   if (cause?.name === 'AbortError') return true
-  if (causeMessage && causeMessage.includes('timeout')) return true
+  if (causeMessage?.includes('timeout')) return true
   if (cause?.code && String(cause.code).toLowerCase().includes('timeout')) {
     return true
   }

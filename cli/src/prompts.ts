@@ -7,27 +7,27 @@ const GITHUB_PROMPTS_CONTENTS_API_URL =
 const GITHUB_ACCEPT_HEADER = 'application/vnd.github+json'
 const GITHUB_USER_AGENT = '@shbernal/pdfanki-cli'
 
-type RemotePromptDirectoryEntry = {
+interface RemotePromptDirectoryEntry {
   name?: unknown
   type?: unknown
   download_url?: unknown
 }
 
-export type PromptSummary = {
+export interface PromptSummary {
   name: string
   path: string
 }
 
-export type RemotePromptSummary = {
+export interface RemotePromptSummary {
   name: string
   downloadUrl: string
 }
 
-type InstallRemotePromptOptions = {
+interface InstallRemotePromptOptions {
   force?: boolean
 }
 
-type InstallRemotePromptResult = {
+interface InstallRemotePromptResult {
   name: string
   path: string
   overwritten: boolean
@@ -89,7 +89,7 @@ async function fetchRemotePromptDirectory(): Promise<RemotePromptSummary[]> {
     throw new Error(buildGitHubApiErrorMessage(response, details))
   }
 
-  const payload = (await response.json()) as unknown
+  const payload = await response.json()
   if (!Array.isArray(payload)) {
     throw new Error(
       'Failed to fetch remote prompts from GitHub: unexpected API response shape.',

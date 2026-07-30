@@ -13,7 +13,7 @@ import { bookJsonToPlainText } from './providers.js'
 
 type SupportedFileType = 'pdf' | 'epub'
 
-export type ConvertFileOptions = {
+export interface ConvertFileOptions {
   inputPath: string
   type?: string
   indexPath?: string
@@ -30,7 +30,7 @@ export type ConvertFileOptions = {
   debug?: boolean
 }
 
-export type ConvertFileResult = {
+export interface ConvertFileResult {
   data: BookJson
   text: string
   fileType: SupportedFileType

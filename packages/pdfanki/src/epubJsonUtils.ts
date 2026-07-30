@@ -6,7 +6,7 @@ import { tmpdir } from 'os'
 import { DEFAULT_EPUB_TITLE_FILTERS } from './epubFilters.js'
 
 /** A chapter as pulled out of the EPUB, before content filtering. */
-type ExtractedChapter = {
+interface ExtractedChapter {
   index: number
   title: string
   text: string
@@ -15,7 +15,7 @@ type ExtractedChapter = {
 }
 
 /** A chapter kept for conversion. */
-type ContentChapter = {
+interface ContentChapter {
   index: number
   title: string
   text: string
@@ -23,14 +23,14 @@ type ContentChapter = {
 }
 
 /** A chapter dropped by a filter, with why. */
-type FilteredChapter = {
+interface FilteredChapter {
   originalIndex: number
   title: string
   reason?: string
 }
 
 /** A title filter rule compiled to a predicate. */
-type TitleMatcher = {
+interface TitleMatcher {
   reason: string
   test: (titleLower: string) => boolean
 }

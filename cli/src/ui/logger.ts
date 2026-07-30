@@ -19,7 +19,7 @@ const LEVEL_WEIGHT: Record<LogLevel, number> = {
   error: 40,
 }
 
-export type LoggerOptions = {
+export interface LoggerOptions {
   level: LogLevel
   useColor: boolean
   stdout?: NodeJS.WriteStream
@@ -31,7 +31,7 @@ function paint(text: string, color: ColorName, enabled: boolean): string {
   return `${ANSI[color]}${text}${ANSI.reset}`
 }
 
-export type Logger = {
+export interface Logger {
   isDebugEnabled: boolean
   debug: (message: string) => void
   info: (message: string) => void

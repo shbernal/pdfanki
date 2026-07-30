@@ -1,13 +1,13 @@
 import { spawn } from 'node:child_process'
 
-export type CodexCliRunnerResult = {
+export interface CodexCliRunnerResult {
   stdout: string
   stderr: string
   exitCode: number | null
   signal: NodeJS.Signals | null
 }
 
-export type CodexCliRunnerOptions = {
+export interface CodexCliRunnerOptions {
   command: string
   cwd?: string
   timeoutMs: number
@@ -23,7 +23,7 @@ export const CODEX_REASONING_EFFORTS = ['low', 'medium', 'high'] as const
 
 export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number]
 
-export type BuildCodexExecArgsOptions = {
+export interface BuildCodexExecArgsOptions {
   model?: string
   reasoningEffort?: CodexReasoningEffort
   profile?: string

@@ -1,9 +1,9 @@
-export type Flashcard = {
+export interface Flashcard {
   front: string
   bullets: string[]
 }
 
-type ValidationIssue = {
+interface ValidationIssue {
   message: string
   lines: number[]
 }

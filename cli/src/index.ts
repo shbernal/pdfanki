@@ -56,7 +56,7 @@ function toKebabAlnum(value: string): string {
   return collapsed || 'deck'
 }
 
-type IndexTemplateEntry = {
+interface IndexTemplateEntry {
   start: number
   end: number
   title?: string
@@ -267,7 +267,7 @@ function parsePageRange(
   pageRange?: string,
 ): { start: number; end: number } | null {
   if (!pageRange) return null
-  const match = pageRange.match(/^(\d+)-(\d+)$/)
+  const match = /^(\d+)-(\d+)$/.exec(pageRange)
   if (!match) return null
   return {
     start: Number(match[1]),
@@ -279,14 +279,14 @@ function formatOverlapRange(start: number, end: number): string {
   return start === end ? `page ${start}` : `pages ${start}-${end}`
 }
 
-function findPageOverlaps(sections: ContentSection[]): Array<{
+function findPageOverlaps(sections: ContentSection[]): {
   leftTitle: string
   leftRange: string
   rightTitle: string
   rightRange: string
   overlapStart: number
   overlapEnd: number
-}> {
+}[] {
   const ranges = sections
     .map(section => {
       const parsed = parsePageRange(section.pageRange)
@@ -298,21 +298,21 @@ function findPageOverlaps(sections: ContentSection[]): Array<{
         end: parsed.end,
       }
     })
-    .filter(Boolean) as Array<{
+    .filter(Boolean) as {
     title: string
     range: string
     start: number
     end: number
-  }>
+  }[]
 
-  const overlaps: Array<{
+  const overlaps: {
     leftTitle: string
     leftRange: string
     rightTitle: string
     rightRange: string
     overlapStart: number
     overlapEnd: number
-  }> = []
+  }[] = []
 
   for (let i = 0; i < ranges.length; i++) {
     for (let j = i + 1; j < ranges.length; j++) {
@@ -399,14 +399,14 @@ function isCI(): boolean {
   return typeof ci === 'string' && ci.length > 0 && ci !== '0'
 }
 
-type UiBuildArgs = {
+interface UiBuildArgs {
   verbose?: unknown
   quiet?: unknown
   color?: unknown
   spinner?: unknown
 }
 
-type CliUi = {
+interface CliUi {
   logger: ReturnType<typeof createLogger>
   spinner: Spinner
   progress: ProgressBar
@@ -521,7 +521,7 @@ async function runWithProgressHeartbeat<T>(options: {
   }
 }
 
-type GenerateFlashcardsRequest = {
+interface GenerateFlashcardsRequest {
   provider: SupportedProvider
   model: string
   apiKey?: string
@@ -585,7 +585,7 @@ async function handleListRemotePrompts(args: UiBuildArgs): Promise<void> {
 
 async function handleGetPrompt(
   args: UiBuildArgs & {
-    name?: unknown
+    name?: string
     force?: unknown
   },
 ): Promise<void> {
@@ -690,7 +690,7 @@ type WorkflowCommandArgs = UiBuildArgs & {
   dryRun?: unknown
 }
 
-type StructuredSourceResult = {
+interface StructuredSourceResult {
   data: BookJson
   fileType: StructuredSourceKind
   sourcePath: string
@@ -747,6 +747,13 @@ function buildBasicExtractPayload(book: BookJson): {
 
 function withSubcommandHelp<T>(y: Argv<T>): Argv<T> {
   return y.updateStrings({ 'Commands:': 'Subcommands:' })
+}
+
+// Handler for group commands that only register subcommands. yargs requires a
+// handler in this positional form, but `.demandCommand()` in the builder
+// rejects before it can run.
+const requireSubcommand = async (): Promise<void> => {
+  // intentionally empty
 }
 
 function withInputPositional<T>(y: Argv<T>, description: string): Argv<T> {
@@ -1118,7 +1125,7 @@ async function runWorkflowCommand(
         async () => fs.readFile(inputPath, 'utf8'),
       )
 
-      const headingMatch = markdownSource.match(/^#\s+(.+)\s*$/m)
+      const headingMatch = /^#\s+(.+)\s*$/m.exec(markdownSource)
       const deckTitle =
         deckTitleArg && deckTitleArg.length > 0
           ? deckTitleArg
@@ -1693,7 +1700,7 @@ const cli = yargs(rawArgs)
           async args => runWorkflowCommand('pdf', 'anki', args),
         )
         .demandCommand(1, 'Choose a pdf subcommand.'),
-    async () => {},
+    requireSubcommand,
   )
   .command(
     'epub',
@@ -1774,7 +1781,7 @@ const cli = yargs(rawArgs)
           async args => runWorkflowCommand('epub', 'anki', args),
         )
         .demandCommand(1, 'Choose an epub subcommand.'),
-    async () => {},
+    requireSubcommand,
   )
   .command(
     'json',
@@ -1824,7 +1831,7 @@ const cli = yargs(rawArgs)
           async args => runWorkflowCommand('json', 'anki', args),
         )
         .demandCommand(1, 'Choose a json subcommand.'),
-    async () => {},
+    requireSubcommand,
   )
   .command(
     'md',
@@ -1851,7 +1858,7 @@ const cli = yargs(rawArgs)
           async args => runWorkflowCommand('md', 'anki', args),
         )
         .demandCommand(1, 'Choose an md subcommand.'),
-    async () => {},
+    requireSubcommand,
   )
   .command(
     'config',
@@ -1910,7 +1917,7 @@ const cli = yargs(rawArgs)
           async args => handleGetPrompt(args),
         )
         .demandCommand(1, 'Choose a prompts subcommand.'),
-    async () => {},
+    requireSubcommand,
   )
   .command(
     'index',
@@ -1943,7 +1950,7 @@ const cli = yargs(rawArgs)
           async args => handleIndexTemplate(args),
         )
         .demandCommand(1, 'Choose an index subcommand.'),
-    async () => {},
+    requireSubcommand,
   )
   .command(
     'reset-config',

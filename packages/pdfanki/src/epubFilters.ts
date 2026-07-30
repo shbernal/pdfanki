@@ -2,7 +2,7 @@ export type EpubTitleFilter =
   | { type: 'string'; value: string }
   | { type: 'regex'; pattern: string; flags?: string }
 
-export type EpubFilters = {
+export interface EpubFilters {
   titles?: EpubTitleFilter[]
 }
 
