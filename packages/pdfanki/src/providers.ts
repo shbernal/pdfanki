@@ -5,12 +5,7 @@ import {
 } from './codexProvider.js'
 
 export type SupportedProvider =
-  | 'gemini'
-  | 'anthropic'
-  | 'openai'
-  | 'deepseek'
-  | 'openrouter'
-  | 'codex'
+  'gemini' | 'anthropic' | 'openai' | 'deepseek' | 'openrouter' | 'codex'
 
 export type GenerateFlashcardsOptions = {
   provider: SupportedProvider
@@ -254,8 +249,7 @@ function isTimeoutError(error: unknown): boolean {
   if (message && message.includes('timeout')) return true
 
   const cause = err.cause as
-    | { message?: string; code?: unknown; name?: string }
-    | undefined
+    { message?: string; code?: unknown; name?: string } | undefined
   const causeMessage = cause?.message?.toLowerCase()
   if (cause?.name === 'AbortError') return true
   if (causeMessage && causeMessage.includes('timeout')) return true
