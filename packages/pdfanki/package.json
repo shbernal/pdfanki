@@ -55,10 +55,10 @@
     "format": "prettier --list-different . | xargs -r prettier --write"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.96.0",
-    "@google/genai": "^2.3.0",
+    "@anthropic-ai/sdk": "^0.115.0",
+    "@google/genai": "^2.13.0",
     "epub": "^2.1.1",
-    "openai": "^6.38.0",
+    "openai": "^7.1.0",
     "pdf-parse": "^2.4.5"
   }
 }

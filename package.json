@@ -2,7 +2,7 @@
   "name": "pdfanki",
   "version": "0.2.2",
   "private": true,
-  "packageManager": "pnpm@11.4.0+sha512.f0febc7e37552ab485494a914241b338e0b3580b93d54ce31f00933015880863129038a1b4ae4e414a0ee63ac35bf21197e990172c4a68256450b5636310968f",
+  "packageManager": "pnpm@11.18.0+sha512.33d83c77da82f49fba836925c6f1b841181ec3132b670639bd012f7075f5c7cf634c5f870147c19aae7478fac01df09d8892e880454896edd23ee9b33757563c",
   "type": "module",
   "scripts": {
     "dev": "turbo dev",
@@ -19,13 +19,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.9.1",
-    "@typescript-eslint/eslint-plugin": "^8.60.0",
-    "@typescript-eslint/parser": "^8.60.0",
-    "eslint": "^10.4.0",
+    "@types/node": "^26.1.2",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "eslint": "^10.8.0",
     "eslint-plugin-unused-imports": "^4.4.1",
-    "prettier": "^3.8.3",
-    "turbo": "^2.9.15",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.7",
     "typescript": "^6.0.3"
   },
   "prettier": {
