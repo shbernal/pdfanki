@@ -1,6 +1,6 @@
 {
   "name": "@shbernal/pdfanki-cli",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Create Anki decks from PDF and EPUB files using NLP with LLMs.",
   "keywords": [
     "anki",
@@ -40,7 +40,7 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@shbernal/mdanki": "^1.1.5",
+    "@shbernal/mdanki": "^2.0.0",
     "@shbernal/pdfanki": "workspace:^",
     "yargs": "^18.1.0"
   },
