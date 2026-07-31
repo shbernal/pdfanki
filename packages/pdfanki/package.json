@@ -50,6 +50,7 @@
     "build": "tsc -b tsconfig.json",
     "lint": "eslint src --max-warnings 0",
     "test": "node --test tests/*.test.mjs",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"tests/**\" tests/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
