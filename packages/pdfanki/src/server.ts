@@ -199,8 +199,18 @@ function parseIndexRanges(indexRanges?: string): IndexEntry[] | null {
     }
 
     return {
-      start: Number.parseInt(match[1], 10),
-      end: Number.parseInt(match[2], 10),
+      start: normalizeIndexPage(
+        Number.parseInt(match[1], 10),
+        'start',
+        'Index ranges',
+        index + 1,
+      ),
+      end: normalizeIndexPage(
+        Number.parseInt(match[2], 10),
+        'end',
+        'Index ranges',
+        index + 1,
+      ),
     }
   })
 

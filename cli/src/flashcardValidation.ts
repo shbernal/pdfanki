@@ -75,9 +75,6 @@ export function parseFlashcardMarkdown(markdown: string): Flashcard[] {
 
   const flushCurrent = (endLine: number) => {
     if (!current) return
-    if (!current.front) {
-      addIssue('Card is missing a front title after "## "', [current.startLine])
-    }
     if (current.bullets.length === 0) {
       const spanStart = current.startLine
       const spanEnd = Math.max(current.endLine, endLine, spanStart)
@@ -113,7 +110,9 @@ export function parseFlashcardMarkdown(markdown: string): Flashcard[] {
       return
     }
 
-    if (line.startsWith('## ')) {
+    // `line` is right-trimmed, so a marker with nothing after it arrives here
+    // as a bare "##" / "-" and must still be recognized as a marker.
+    if (line.startsWith('## ') || line === '##') {
       if (current) flushCurrent(lineNumber - 1)
       const front = line.slice(3).trim()
       if (!front) {
@@ -128,7 +127,7 @@ export function parseFlashcardMarkdown(markdown: string): Flashcard[] {
       return
     }
 
-    if (line.startsWith('- ')) {
+    if (line.startsWith('- ') || line === '-') {
       if (!current) {
         addIssue('Bullet item found before any card front', [lineNumber])
         return

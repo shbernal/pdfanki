@@ -216,6 +216,9 @@ test('index ranges must be well formed', async () => {
     ['5-3', /start page 5 greater than end page 3/],
     ['5-6,1-2', /must be sorted by start page in ascending order/],
     ['1-5,3-8', /entries 1 and 2 overlap on pages 3-5/],
+    ['0-2', /entry 1 has invalid "start"; expected a positive integer/],
+    ['1-2,0-3', /entry 2 has invalid "start"; expected a positive integer/],
+    ['2-0', /entry 1 has invalid "end"; expected a positive integer/],
   ]
 
   await withStubPdf(async pdfPath => {
@@ -223,19 +226,6 @@ test('index ranges must be well formed', async () => {
       await rejects({ inputPath: pdfPath, indexRanges }, pattern)
     }
   })
-})
-
-test('index ranges do not reject a zero start page, unlike an index file', async () => {
-  // Documents current behavior, not desired behavior: parseIndexRanges has no
-  // positive-integer check, so "0-2" gets through and the chapter is later
-  // skipped with a warning. The index-file path rejects start: 0 outright.
-  await withStubPdf(pdfPath =>
-    assert.rejects(
-      () => convert({ inputPath: pdfPath, indexRanges: '0-2' }),
-      // Reaches the parser instead of failing validation.
-      /Invalid PDF structure/,
-    ),
-  )
 })
 
 test('an index file must be a JSON array of valid chapter ranges', async () => {

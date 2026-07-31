@@ -79,20 +79,33 @@ test('parseFlashcardMarkdown rejects a card with no bullets', () => {
   assert.match(message, /lines 1/)
 })
 
-test('empty headings and bullets are treated as prose, not as validation errors', () => {
-  // Documents current behavior. `rawLine.trimEnd()` runs before the "## " and
-  // "- " prefix checks, so a marker with nothing after it collapses to "##" /
-  // "-" and stops being a marker at all. That makes three validation branches
-  // unreachable: "Empty card front after \"## \"", "Card is missing a front
-  // title after \"## \"", and "Empty bullet item".
-  assert.deepEqual(
-    parseFlashcardMarkdown(['## Front', '- a', '## ', '- b'].join('\n')),
-    [{ front: 'Front', bullets: ['a', 'b'] }],
-  )
+test('parseFlashcardMarkdown rejects an empty card front', () => {
+  // `rawLine.trimEnd()` runs before the prefix check, so "## " arrives as a
+  // bare "##" and must still be recognized as a heading marker.
+  const message = parseError(['## Front', '- a', '## ', '- b'].join('\n'))
 
-  assert.deepEqual(parseFlashcardMarkdown('## Front\n- a\n-  \n- b'), [
-    { front: 'Front', bullets: ['a', 'b'] },
-  ])
+  assert.match(message, /Empty card front after "## "/)
+  assert.match(message, /lines 3/)
+})
+
+test('parseFlashcardMarkdown rejects an empty bullet item', () => {
+  const message = parseError('## Front\n- a\n-  \n- b')
+
+  assert.match(message, /Empty bullet item/)
+  assert.match(message, /lines 3/)
+})
+
+test('parseFlashcardMarkdown reports an empty front once, not twice', () => {
+  const message = parseError('## \n- a')
+
+  assert.match(message, /1\. Empty card front after "## "/)
+  assert.doesNotMatch(message, /2\./)
+})
+
+test('parseFlashcardMarkdown labels an empty front in the missing-bullets issue', () => {
+  const message = parseError('## ')
+
+  assert.match(message, /Card "\(empty front\)" is missing bullet items/)
 })
 
 test('parseFlashcardMarkdown rejects a bullet before any card front', () => {
