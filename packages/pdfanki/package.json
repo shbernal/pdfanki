@@ -2,7 +2,6 @@
   "name": "@shbernal/pdfanki",
   "version": "0.2.2",
   "type": "module",
-  "packageManager": "pnpm@11.4.0+sha512.f0febc7e37552ab485494a914241b338e0b3580b93d54ce31f00933015880863129038a1b4ae4e414a0ee63ac35bf21197e990172c4a68256450b5636310968f",
   "description": "Create Anki decks from PDF and EPUB files using NLP with LLMs.",
   "keywords": [
     "anki",
@@ -52,6 +51,9 @@
     "lint": "eslint src --max-warnings 0",
     "test": "node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
