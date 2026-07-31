@@ -1,4 +1,4 @@
-export type SpinnerOptions = {
+export interface SpinnerOptions {
   enabled: boolean
   stream?: NodeJS.WriteStream
   intervalMs?: number
@@ -10,7 +10,7 @@ function eraseLine(stream: NodeJS.WriteStream) {
   stream.write('\r\u001b[2K')
 }
 
-export type Spinner = {
+export interface Spinner {
   start: (text: string) => void
   update: (text: string) => void
   stop: () => void

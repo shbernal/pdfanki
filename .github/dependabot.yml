@@ -1,0 +1,48 @@
+version: 2
+
+updates:
+  # pnpm workspace: the root holds the shared toolchain, `cli` and
+  # `packages/*` hold the published dependencies.
+  - package-ecosystem: npm
+    directories:
+      - /
+      - /cli
+      - /packages/*
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    versioning-strategy: increase-if-necessary
+    # Mirrors the `minimumReleaseAgeStrict` posture in pnpm-workspace.yaml:
+    # never propose a release that pnpm would still refuse to install.
+    cooldown:
+      default-days: 7
+    groups:
+      dev-minor-and-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      prod-minor-and-patch:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Sibling packages are released deliberately and in order; bumping them
+      # here would race the coordinated release described in AGENTS.md.
+      - dependency-name: '@shbernal/*'
+      # typescript-eslint 8.x rejects the TS 7.0 API; see AGENTS.md.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns:
+          - '*'

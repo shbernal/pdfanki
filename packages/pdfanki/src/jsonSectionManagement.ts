@@ -27,7 +27,7 @@ export function updateMetadata(jsonData, deletedCount = 0) {
  * Delete a section from JSON data
  */
 export function deleteSection(jsonData, sectionIndex) {
-  if (!jsonData || !jsonData.content || !Array.isArray(jsonData.content)) {
+  if (!jsonData?.content || !Array.isArray(jsonData.content)) {
     throw new Error('Invalid JSON data structure')
   }
 
@@ -79,11 +79,11 @@ export function deleteSection(jsonData, sectionIndex) {
  * Restore a deleted section to its original position
  */
 export function undoDelete(jsonData, deletedSection) {
-  if (!jsonData || !jsonData.content || !Array.isArray(jsonData.content)) {
+  if (!jsonData?.content || !Array.isArray(jsonData.content)) {
     throw new Error('Invalid JSON data structure')
   }
 
-  if (!deletedSection || !deletedSection.section) {
+  if (!deletedSection?.section) {
     throw new Error('Invalid deleted section data')
   }
 

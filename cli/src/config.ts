@@ -93,13 +93,13 @@ export const DEFAULT_SETTINGS: Settings = {
   },
 } as const
 
-export type ProviderSettings = {
+export interface ProviderSettings {
   defaultModel: string
   reasoningEffort?: string
   profile?: string
 }
 
-export type Settings = {
+export interface Settings {
   output: {
     path: string
     paths: Partial<Record<'json' | 'md' | 'apkg', string>>
@@ -118,7 +118,7 @@ export type Settings = {
   }
 }
 
-export type ConfigPaths = {
+export interface ConfigPaths {
   dir: string
   settings: string
   promptsDir: string
@@ -126,7 +126,7 @@ export type ConfigPaths = {
 }
 
 function mergeUniqueTitleFilters(
-  ...groups: Array<readonly EpubTitleFilter[] | undefined>
+  ...groups: (readonly EpubTitleFilter[] | undefined)[]
 ): EpubTitleFilter[] {
   const seen = new Set<string>()
   const merged: EpubTitleFilter[] = []

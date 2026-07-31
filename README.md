@@ -13,7 +13,7 @@ Project layout
 
 Requirements
 
-- Node.js >= 20
+- Node.js >= 24
 - Provider API key exported in your shell for API-backed providers: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`
 - Optional experimental Codex provider: locally installed official `codex` CLI with an existing login; pdfanki calls `codex exec` and does not read Codex auth files directly
 

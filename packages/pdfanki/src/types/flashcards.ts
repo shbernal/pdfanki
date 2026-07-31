@@ -1,11 +1,11 @@
-export type IndexEntry = {
+export interface IndexEntry {
   title?: string
   start: number
   end: number
   index?: number
 }
 
-export type BookMetadata = {
+export interface BookMetadata {
   title?: string
   author?: string
   fileType?: string
@@ -19,7 +19,7 @@ export type BookMetadata = {
   processingMethod?: string
 }
 
-export type ContentSection = {
+export interface ContentSection {
   index: number
   title?: string
   text?: string
@@ -27,7 +27,7 @@ export type ContentSection = {
   pageCount?: number
 }
 
-export type BookJson = {
+export interface BookJson {
   metadata?: BookMetadata
   content: ContentSection[]
 }

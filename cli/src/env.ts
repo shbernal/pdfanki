@@ -1,4 +1,4 @@
-export type ApiKeyLookup = {
+export interface ApiKeyLookup {
   envVar: string
   apiKey?: string
 }

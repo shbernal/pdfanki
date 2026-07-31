@@ -2,7 +2,7 @@
 import { PDFParse, VerbosityLevel } from 'pdf-parse'
 
 /** One extracted unit of PDF text: a chapter, or the whole document. */
-type PdfSection = {
+interface PdfSection {
   index: number
   title: string
   text: string
@@ -30,11 +30,10 @@ export async function parsePdfWithPdfParse(fileBuffer, debug = false) {
 
     const pageTexts = textResult.pages?.map(page => page.text ?? '') ?? []
 
-    const metadata =
-      (infoResult.metadata &&
-        ((infoResult.metadata as { _metadata?: unknown })._metadata ||
-          infoResult.metadata)) ||
-      {}
+    const metadata = infoResult.metadata
+      ? ((infoResult.metadata as { _metadata?: unknown })._metadata ??
+        infoResult.metadata)
+      : {}
 
     return {
       pageTexts,
@@ -161,12 +160,12 @@ export function transformPdfParseResult(parsedData, originalFile, index) {
     title:
       meta.Title ||
       meta.title ||
-      (parsedData.metadata && parsedData.metadata.title) ||
+      parsedData.metadata?.title ||
       originalFile.name.replace('.pdf', ''),
     author:
       meta.Author ||
       meta.author ||
-      (parsedData.metadata && parsedData.metadata.author) ||
+      parsedData.metadata?.author ||
       'Unknown Author',
     creator: meta.Creator || null,
     producer: meta.Producer || null,

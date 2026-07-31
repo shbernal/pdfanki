@@ -1,4 +1,4 @@
-export type ProgressBarOptions = {
+export interface ProgressBarOptions {
   enabled: boolean
   useColor?: boolean
   stream?: NodeJS.WriteStream
@@ -19,7 +19,7 @@ function formatDuration(durationMs: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
 }
 
-export type ProgressBar = {
+export interface ProgressBar {
   start: (total: number, label?: string) => void
   increment: (label?: string) => void
   update: (current: number, label?: string, activityFrame?: string) => void

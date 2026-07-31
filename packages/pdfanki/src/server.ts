@@ -13,7 +13,7 @@ import { bookJsonToPlainText } from './providers.js'
 
 type SupportedFileType = 'pdf' | 'epub'
 
-export type ConvertFileOptions = {
+export interface ConvertFileOptions {
   inputPath: string
   type?: string
   indexPath?: string
@@ -30,7 +30,7 @@ export type ConvertFileOptions = {
   debug?: boolean
 }
 
-export type ConvertFileResult = {
+export interface ConvertFileResult {
   data: BookJson
   text: string
   fileType: SupportedFileType
@@ -199,8 +199,18 @@ function parseIndexRanges(indexRanges?: string): IndexEntry[] | null {
     }
 
     return {
-      start: Number.parseInt(match[1], 10),
-      end: Number.parseInt(match[2], 10),
+      start: normalizeIndexPage(
+        Number.parseInt(match[1], 10),
+        'start',
+        'Index ranges',
+        index + 1,
+      ),
+      end: normalizeIndexPage(
+        Number.parseInt(match[2], 10),
+        'end',
+        'Index ranges',
+        index + 1,
+      ),
     }
   })
 

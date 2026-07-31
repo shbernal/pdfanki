@@ -37,7 +37,7 @@ export function cleanExtractedText(text) {
  * @returns {Object} - Transformed result with cleaned text content
  */
 export function cleanTransformedResult(transformedResult) {
-  if (!transformedResult || !transformedResult.content) {
+  if (!transformedResult?.content) {
     return transformedResult
   }
 

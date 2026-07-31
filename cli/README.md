@@ -11,7 +11,7 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 
 ### Requirements
 
-- Node >=20
+- Node >=24
 - Provider API keys via environment variables for API-backed providers: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`
 - Optional experimental Codex provider: locally installed official `codex` CLI with an existing login; pdfanki calls `codex exec` and does not read Codex auth files directly
 
