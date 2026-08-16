@@ -3,6 +3,8 @@ pdfanki
 
 Create Anki decks from PDF/EPUB files using NLP with LLMs. This repository hosts the CLI plus shared packages and tooling that power the end-to-end workflow.
 
+Release notes are in [`CHANGELOG.md`](./CHANGELOG.md). Read the 0.4.0 entry before upgrading from 0.3.x: rebuilt decks now update on re-import instead of duplicating, at the one-time cost of one duplicate on the first import after the upgrade.
+
 Project layout
 
 - `cli/`: The published CLI (`@shbernal/pdfanki-cli`)

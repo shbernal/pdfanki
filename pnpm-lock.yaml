@@ -48,8 +48,8 @@ importers:
   cli:
     dependencies:
       '@shbernal/mdanki':
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^3.0.0
+        version: 3.0.0
       '@shbernal/pdfanki':
         specifier: workspace:^
         version: link:../packages/pdfanki
@@ -504,12 +504,12 @@ packages:
   '@protobufjs/utf8@1.1.2':
     resolution: {integrity: sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug==}
 
-  '@shbernal/anki-apkg-export@5.0.0':
-    resolution: {integrity: sha512-Cn5mkD7jj5QVi3Ze30D1V1svZteJJOhOEAOV1Zi2QXcd9Pgx2y6Tr6lUjxV8W/SZBap0EiWILs35k2obvklRRw==}
+  '@shbernal/anki-apkg-export@5.1.0':
+    resolution: {integrity: sha512-fheBIINWi3DkzHK6diHoMM4qLe0vrfGlWaIZzrWhbiw4umXBgaN2m1p9R/j3LAjN+69btG8tHgIKVlM7D1qohg==}
     engines: {node: '>=24'}
 
-  '@shbernal/mdanki@2.0.0':
-    resolution: {integrity: sha512-8ukE1y3JN+KsIT8wlE5CA7MIxy0Ha3k3+VreaNrQKmXhoeL7CiTJ4+oURlvuXgHlsdvU6gst7OqAMyK5RZobDA==}
+  '@shbernal/mdanki@3.0.0':
+    resolution: {integrity: sha512-xSNnTkvO8au37N/BHPb6UR3d/ZpmZabfNW6w00FruP535Oko2Cr7ribc6N/vNEzHSpCUL5Mt6hpubu57syYrSw==}
     engines: {node: '>=24'}
     hasBin: true
 
@@ -1195,8 +1195,8 @@ packages:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
 
-  sql.js@1.14.1:
-    resolution: {integrity: sha512-gcj8zBWU5cFsi9WUP+4bFNXAyF1iRpA3LLyS/DP5xlrNzGmPIizUeBggKa8DbDwdqaKwUcTEnChtd2grWo/x/A==}
+  sql.js@1.14.2:
+    resolution: {integrity: sha512-3ZGPovObMFrdw79zrUHbfdE/DLIsy8jdNdssmMSQuRAymedU6q84asPt0kgiqrdMYlPegDItiIMfmIXzZnYFcw==}
 
   standardwebhooks@1.0.0:
     resolution: {integrity: sha512-BbHGOQK9olHPMvQNHWul6MYlrRTAOKn03rOe4A8O3CLWhNf4YHBqq2HJKKC+sfqpxiBY52pNeesD6jIiLDz8jg==}
@@ -1595,14 +1595,14 @@ snapshots:
 
   '@protobufjs/utf8@1.1.2': {}
 
-  '@shbernal/anki-apkg-export@5.0.0':
+  '@shbernal/anki-apkg-export@5.1.0':
     dependencies:
       fflate: 0.8.3
-      sql.js: 1.14.1
+      sql.js: 1.14.2
 
-  '@shbernal/mdanki@2.0.0':
+  '@shbernal/mdanki@3.0.0':
     dependencies:
-      '@shbernal/anki-apkg-export': 5.0.0
+      '@shbernal/anki-apkg-export': 5.1.0
       fast-glob: 3.3.3
       marked: 18.0.7
       marked-highlight: 2.2.4(marked@18.0.7)
@@ -2288,7 +2288,7 @@ snapshots:
 
   shebang-regex@3.0.0: {}
 
-  sql.js@1.14.1: {}
+  sql.js@1.14.2: {}
 
   standardwebhooks@1.0.0:
     dependencies:
