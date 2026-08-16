@@ -45,6 +45,7 @@
     "yargs": "^18.1.0"
   },
   "devDependencies": {
+    "@shbernal/flashcard-md-spec": "github:shbernal/flashcard-md-spec",
     "tsx": "^4.23.1"
   },
   "publishConfig": {

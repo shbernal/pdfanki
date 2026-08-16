@@ -23,12 +23,13 @@ Create flashcards in Markdown using this exact format:
 
 **Format Requirements:**
 
-- Return only Markdown flashcards; do not include a deck title or extra commentary
+- Return only Markdown flashcards; no deck title, no commentary, no wrappers
 - Each card front is a `##` heading; keep it concise and specific
-- Each card back is a bullet list with 1–3 items starting with `-` (prefer 3 when the source allows)
+- Each card back is a bullet list starting with `-`; nest sub-items by indenting two spaces
+- Leave a blank line after each `##` heading and one between cards
+- Never emit a `#` heading; the deck title is added separately, and a `#` here would end the card above it
+- 1–3 top-level bullets is a good heuristic rather than a hard cap; prefer 3 when the source allows
 - Bullet items are terse fragments (not sentences) that surface concrete facts/names
-- One blank line between different flashcard groups
-- Keep everything in Markdown with no other prose or wrappers
 
 **Avoid:**
 
@@ -37,6 +38,5 @@ Create flashcards in Markdown using this exact format:
 - Redundant points already covered elsewhere
 - Trivial details that do not support a core concept
 - Returning code fences unless they already exist in the source material
-- Adding headings above `##` level (the deck title will be added separately)
 
 Text to process:

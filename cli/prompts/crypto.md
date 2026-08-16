@@ -42,15 +42,14 @@ The source text may cover one or more of the following:
 
 ## Format Requirements
 
-- Return **only** Markdown flashcards; no explanations, no intro, no outro
-- Each card front is a `##` heading; concise, protocol-specific
-- Each card back is a bullet list with **1–3 items** starting with `-`
-  - Prefer 3 when the source supports it
+- Return only Markdown flashcards; no deck title, no commentary, no wrappers
+- Each card front is a `##` heading; keep it concise and specific
+- Each card back is a bullet list starting with `-`; nest sub-items by indenting two spaces
+- Leave a blank line after each `##` heading and one between cards
+- Never emit a `#` heading; the deck title is added separately, and a `#` here would end the card above it
+- 1–3 top-level bullets is a good heuristic rather than a hard cap; prefer 3 when the source supports it
 - Bullet items are **terse technical fragments**, not sentences
-- No subjective language, no metaphors
-- One blank line between flashcard groups
-- No headings above `##`
-- No emojis
+- Fronts are protocol-specific; no subjective language, no metaphors, no emojis
 - No code fences unless they already exist verbatim in the source
 
 ## Precision Rules
