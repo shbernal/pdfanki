@@ -57,9 +57,9 @@ importers:
         specifier: ^18.1.0
         version: 18.1.0
     devDependencies:
-      '@shbernal/flashcard-md-spec':
+      flashcard-md-spec:
         specifier: github:shbernal/flashcard-md-spec
-        version: https://codeload.github.com/shbernal/flashcard-md-spec/tar.gz/08f728e2ab3c185f221f38e31819a50eb078b4aa
+        version: https://codeload.github.com/shbernal/flashcard-md-spec/tar.gz/b2a3addc1543abf16dae5f107810a921581c476f
       tsx:
         specifier: ^4.23.1
         version: 4.23.1
@@ -511,11 +511,6 @@ packages:
     resolution: {integrity: sha512-fheBIINWi3DkzHK6diHoMM4qLe0vrfGlWaIZzrWhbiw4umXBgaN2m1p9R/j3LAjN+69btG8tHgIKVlM7D1qohg==}
     engines: {node: '>=24'}
 
-  '@shbernal/flashcard-md-spec@https://codeload.github.com/shbernal/flashcard-md-spec/tar.gz/08f728e2ab3c185f221f38e31819a50eb078b4aa':
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/shbernal/flashcard-md-spec/tar.gz/08f728e2ab3c185f221f38e31819a50eb078b4aa}
-    version: 0.0.1
-    engines: {node: '>=24'}
-
   '@shbernal/mdanki@4.0.0':
     resolution: {integrity: sha512-ARc/xfui7couK85xy8R4UulfMweFnRL6/Coa4yHCJBLjKgk6cjD29aL3eP9okHeKCET8duX8pZQ7qyDkKCz+hQ==}
     engines: {node: '>=24'}
@@ -838,6 +833,11 @@ packages:
   find-up@5.0.0:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
     engines: {node: '>=10'}
+
+  flashcard-md-spec@https://codeload.github.com/shbernal/flashcard-md-spec/tar.gz/b2a3addc1543abf16dae5f107810a921581c476f:
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/shbernal/flashcard-md-spec/tar.gz/b2a3addc1543abf16dae5f107810a921581c476f}
+    version: 1.0.0
+    engines: {node: '>=24'}
 
   flat-cache@4.0.1:
     resolution: {integrity: sha512-f7ccFPK3SXFHpx15UIGyRJ/FJQctuKZ0zVuN3frBo4HnK3cay9VEW0R6yPYFHC0AgqhukPzKjq22t5DmAyqGyw==}
@@ -1613,8 +1613,6 @@ snapshots:
       fflate: 0.8.3
       sql.js: 1.14.2
 
-  '@shbernal/flashcard-md-spec@https://codeload.github.com/shbernal/flashcard-md-spec/tar.gz/08f728e2ab3c185f221f38e31819a50eb078b4aa': {}
-
   '@shbernal/mdanki@4.0.0':
     dependencies:
       '@shbernal/anki-apkg-export': 5.1.0
@@ -1984,6 +1982,8 @@ snapshots:
     dependencies:
       locate-path: 6.0.0
       path-exists: 4.0.0
+
+  flashcard-md-spec@https://codeload.github.com/shbernal/flashcard-md-spec/tar.gz/b2a3addc1543abf16dae5f107810a921581c476f: {}
 
   flat-cache@4.0.1:
     dependencies:
