@@ -5,6 +5,7 @@ packages:
 minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - '@shbernal/*'
+  - flashcard-md-spec@1.0.0
 
 allowBuilds:
   '@google/genai': true
