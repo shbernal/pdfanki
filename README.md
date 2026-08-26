@@ -3,7 +3,9 @@ pdfanki
 
 Create Anki decks from PDF/EPUB files using NLP with LLMs. This repository hosts the CLI plus shared packages and tooling that power the end-to-end workflow.
 
-The markdown pdfanki writes is [Flashcard Markdown](https://github.com/shbernal/flashcard-md-spec), a specification with a conformance corpus that this repository runs in its own test suite. pdfanki conforms as a producer: it emits canonical form only, and refuses to write anything else.
+The markdown pdfanki writes is [Flashcard Markdown](https://github.com/shbernal/flashcard-md-spec), a specification with a conformance corpus that this repository runs in its own test suite. pdfanki conforms as a producer: it emits canonical form only, and refuses to write anything else. The format itself is [`@ankimd/core`](https://www.npmjs.com/package/@ankimd/core), which reads and writes it in both directions; what lives here is the policy pdfanki holds its own model output to.
+
+`pdfanki md anki` builds a package from a markdown deck you already have, packaging images that sit beside it. For a hand-written deck that also wants syntax-highlighted code or images fetched over the network, [`ankimd build`](https://www.npmjs.com/package/@ankimd/cli) is the command for it.
 
 Release notes are in [`CHANGELOG.md`](./CHANGELOG.md). 0.5.0 adopted the specification and fixed a validator that had been dropping nested bullets and `###` headings out of generated decks. Upgrading from 0.3.x, read the 0.4.0 entry as well: rebuilt decks now update on re-import instead of duplicating, at the one-time cost of one duplicate on the first import after the upgrade.
 

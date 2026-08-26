@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 import { promises as fs } from 'fs'
-import { tmpdir } from 'os'
 import { dirname, join, parse } from 'path'
 import {
-  convertMarkdownToAnkiDeck,
-  type ConvertMarkdownToAnkiDeckOptions,
-} from '@shbernal/mdanki'
+  localMedia,
+  parseMarkdown,
+  renderMarkdown,
+  writeApkg,
+  type Card,
+  type Deck,
+} from '@ankimd/core'
 import yargs, { type Argv } from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import {
@@ -33,12 +36,8 @@ import {
   listRemotePrompts,
 } from './prompts.js'
 import { providerRequiresApiKey, readProviderApiKey } from './env.js'
-import {
-  parseFlashcardMarkdown,
-  renderFlashcards,
-  type Flashcard,
-} from './flashcardValidation.js'
-import { createLogger, type LogLevel } from './ui/logger.js'
+import { parseSectionCards } from './flashcardPolicy.js'
+import { createLogger, type Logger, type LogLevel } from './ui/logger.js'
 import { createSpinner, type Spinner } from './ui/spinner.js'
 import { createProgressBar, type ProgressBar } from './ui/progress.js'
 
@@ -88,14 +87,21 @@ function formatIndexTemplate(entries: IndexTemplateEntry[]): string {
   return `[\n${lines.join(',\n')}\n]\n`
 }
 
-function buildDeckMarkdown(deckTitle: string, body: string): string {
-  const cleanedTitle = deckTitle.trim() || 'Deck'
-  const cleanedBody = body.trim()
-  const lines = [`# ${cleanedTitle}`]
-  if (cleanedBody) {
-    lines.push('', cleanedBody)
+/**
+ * The deck the generated cards belong to.
+ *
+ * The `# ` title is written here rather than by the model, which is why the model's
+ * output is validated as a card region and a `#` in it is an error.
+ */
+function buildDeck(deckTitle: string, cards: readonly Card[]): Deck {
+  return {
+    title: deckTitle.trim() || 'Deck',
+    titleSource: 'heading',
+    frontmatter: {},
+    fileTags: [],
+    preamble: null,
+    cards,
   }
-  return `${lines.join('\n')}\n`
 }
 
 function normalizePathArg(value: unknown): string | undefined {
@@ -1012,24 +1018,27 @@ async function loadStructuredSource(options: {
   return convertFileFromPath(convertOptions)
 }
 
-async function buildAnkiPackageFromMarkdownPayload(options: {
-  markdownPayload: string
+/**
+ * Writes the package, reporting whatever the conversion had to say.
+ *
+ * §3.3 of the format: a deck that lost something on the way out says so. A silent
+ * success over skipped cards is a conformance bug rather than a tidy UI.
+ */
+async function buildAnkiPackage(options: {
+  deck: Deck
   outputPath: string
   deckTitle: string
+  logger: Logger
+  mediaDir?: string
 }): Promise<void> {
-  const { markdownPayload, outputPath, deckTitle } = options
-  const tempDir = await fs.mkdtemp(join(tmpdir(), 'pdfanki-anki-'))
-  const markdownPath = join(tempDir, 'deck.md')
+  const { deck, outputPath, deckTitle, logger, mediaDir } = options
+  const diagnostics = await writeApkg(deck, outputPath, {
+    deckName: deckTitle,
+    ...(mediaDir ? { resolveMedia: localMedia(mediaDir) } : {}),
+  })
 
-  try {
-    await fs.writeFile(markdownPath, markdownPayload, 'utf8')
-    const deckConversionOptions: ConvertMarkdownToAnkiDeckOptions = {
-      target: outputPath,
-      deckName: deckTitle,
-    }
-    await convertMarkdownToAnkiDeck(markdownPath, deckConversionOptions)
-  } finally {
-    await fs.rm(tempDir, { recursive: true, force: true })
+  for (const item of diagnostics) {
+    logger.warn(`${item.code}: ${item.message}`)
   }
 }
 
@@ -1125,11 +1134,14 @@ async function runWorkflowCommand(
         async () => fs.readFile(inputPath, 'utf8'),
       )
 
-      const headingMatch = /^#\s+(.+)\s*$/m.exec(markdownSource)
+      /* The consumer half of the format, not the producer half: this is the user's
+         own deck rather than something pdfanki just generated, so anything unreadable
+         is reported and the rest of the file still converts (§3.1). */
+      const { deck, diagnostics } = parseMarkdown(markdownSource)
       const deckTitle =
         deckTitleArg && deckTitleArg.length > 0
           ? deckTitleArg
-          : headingMatch?.[1]?.trim() || parse(inputPath).name
+          : deck.title?.trim() || parse(inputPath).name
 
       if (dryRun) {
         logger.info('- dry run: Anki package creation skipped')
@@ -1142,13 +1154,22 @@ async function runWorkflowCommand(
         return
       }
 
+      for (const item of diagnostics) {
+        logger.warn(`${item.code}: ${item.message}`)
+      }
+
       await runWithSpinner(spinner, 'Building Anki deck...', async () => {
-        await fs.mkdir(dirname(outputPath), { recursive: true })
-        const deckConversionOptions: ConvertMarkdownToAnkiDeckOptions = {
-          target: outputPath,
-          deckName: deckTitle,
-        }
-        await convertMarkdownToAnkiDeck(inputPath, deckConversionOptions)
+        await buildAnkiPackage({
+          deck,
+          outputPath,
+          deckTitle,
+          logger,
+          /* Images are resolved beside the deck that names them, which is where a
+             relative reference in someone's vault points. Remote ones are left as
+             written: downloading needs a timeout and a policy on whether to touch the
+             network at all, and `ankimd build` is the command that has both. */
+          mediaDir: dirname(inputPath),
+        })
       })
 
       logger.success(
@@ -1379,7 +1400,7 @@ async function runWorkflowCommand(
 
     const generationStart = Date.now()
     const totalSections = sections.length
-    const aggregatedCards: Flashcard[] = []
+    const aggregatedCards: Card[] = []
     const showPerSectionLogs = logger.isDebugEnabled || !ui.progressEnabled
 
     if (ui.progressEnabled) {
@@ -1412,7 +1433,7 @@ async function runWorkflowCommand(
 
       let rawResponse: string | null = null
       try {
-        let parsedCards: Flashcard[] | null = null
+        let parsedCards: Card[] | null = null
 
         for (
           let attempt = 1;
@@ -1452,7 +1473,7 @@ async function runWorkflowCommand(
           rawResponse = response
 
           try {
-            parsedCards = parseFlashcardMarkdown(response)
+            parsedCards = parseSectionCards(response)
             break
           } catch (validationError) {
             if (!(validationError instanceof Error)) {
@@ -1517,9 +1538,9 @@ async function runWorkflowCommand(
             artifactDir,
             `${artifactBaseName}-failed-section-${position + 1}.md`,
           )
-          const partialBody =
-            aggregatedCards.length > 0 ? renderFlashcards(aggregatedCards) : ''
-          const partialPayload = buildDeckMarkdown(deckTitle, partialBody)
+          const partialPayload = renderMarkdown(
+            buildDeck(deckTitle, aggregatedCards),
+          )
           await fs.mkdir(artifactDir, { recursive: true })
           await fs.writeFile(partialPath, partialPayload, 'utf8')
 
@@ -1557,8 +1578,8 @@ async function runWorkflowCommand(
       `Generated ${aggregatedCards.length} flashcards in ${totalDuration}.`,
     )
 
-    const flashcards = renderFlashcards(aggregatedCards)
-    const markdownPayload = buildDeckMarkdown(deckTitle, flashcards)
+    const deck = buildDeck(deckTitle, aggregatedCards)
+    const markdownPayload = renderMarkdown(deck)
 
     if (dryRun) {
       if (targetKind === 'md') {
@@ -1587,11 +1608,7 @@ async function runWorkflowCommand(
       )
     } else {
       await runWithSpinner(spinner, 'Building Anki package...', async () => {
-        await buildAnkiPackageFromMarkdownPayload({
-          markdownPayload,
-          outputPath,
-          deckTitle,
-        })
+        await buildAnkiPackage({ deck, outputPath, deckTitle, logger })
       })
 
       logger.success(

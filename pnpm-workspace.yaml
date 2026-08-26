@@ -4,6 +4,7 @@ packages:
 
 minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
+  - '@ankimd/*'
   - '@shbernal/*'
   - flashcard-md-spec@1.0.0
 

@@ -40,7 +40,7 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@shbernal/mdanki": "^4.0.0",
+    "@ankimd/core": "^0.0.4",
     "@shbernal/pdfanki": "workspace:^",
     "yargs": "^18.1.0"
   },
