@@ -71,7 +71,7 @@ importers:
         version: 2.1.1
       openai:
         specifier: ^7.10.0
-        version: 7.10.0(ws@8.21.3)
+        version: 7.13.0(ws@8.21.3)
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
@@ -1122,8 +1122,8 @@ packages:
     resolution: {integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  openai@7.10.0:
-    resolution: {integrity: sha512-sn9t2Kls7O52PwuF9BUTYNu4Gk/r0lXJyrgaNht4TNRlZFb3dJIGO0RciSgjARGCBRtWjySubAQFJttlzUvGQQ==}
+  openai@7.13.0:
+    resolution: {integrity: sha512-KDg/mQgbsDoj0JLL1kVikj5Omz+MuU9/Hn674Z+FFaSs5aFf7mcpLu8vsB1FfSW4q/erMhCza7HZgXN0cPKH0w==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
@@ -2017,7 +2017,7 @@ snapshots:
       fetch-blob: 3.2.0
       formdata-polyfill: 4.0.10
 
-  openai@7.10.0(ws@8.21.3):
+  openai@7.13.0(ws@8.21.3):
     optionalDependencies:
       ws: 8.21.3
 
