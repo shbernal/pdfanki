@@ -19,12 +19,12 @@
     "pdfanki-local": "env PDFANKI_LOCAL_DEV=1 PDFANKI_CALLER_CWD=\"$INIT_CWD\" pnpm --dir cli exec node --import tsx src/index.ts"
   },
   "devDependencies": {
-    "@types/node": "^26.4.1",
-    "lefthook": "^2.1.12",
-    "oxfmt": "^0.66.0",
-    "oxlint": "^1.81.0",
-    "oxlint-tsgolint": "^7.0.2001",
-    "turbo": "^2.10.12",
+    "@types/node": "^26.6.2",
+    "lefthook": "^2.1.14",
+    "oxfmt": "^0.70.0",
+    "oxlint": "^1.85.0",
+    "oxlint-tsgolint": "^7.0.2002",
+    "turbo": "^2.11.3",
     "typescript": "^7.0.2"
   },
   "packageManager": "pnpm@11.25.0+sha512.5cde925b4f075f725eb71fbae18a42ffe784524789f19b61c731cb8721ec28aaee160e01a8d5af4fedb2a42cdbf300efe23db356b0d4a17b4d63e11f8ab7c956"
