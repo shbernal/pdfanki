@@ -6,7 +6,6 @@
 .tmp/
 
 AGENTS.md
-CLAUDE.md
 
 fixtures
 fixtures/local/**
