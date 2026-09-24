@@ -42,13 +42,13 @@
     "@ankimd/core": "^0.0.6",
     "@shbernal/pdfanki": "workspace:^",
     "prismjs": "^1.30.0",
-    "yargs": "^18.1.0"
+    "yargs": "^18.2.0"
   },
   "devDependencies": {
     "@types/prismjs": "^1.26.6",
     "@types/yargs": "^17.0.35",
     "flashcard-md-spec": "~1.1.0",
-    "tsx": "^4.23.13"
+    "tsx": "^4.23.15"
   },
   "engines": {
     "node": ">=24"
