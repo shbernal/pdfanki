@@ -43,7 +43,7 @@ importers:
         version: 1.30.0
       yargs:
         specifier: ^18.1.0
-        version: 18.1.0
+        version: 18.2.0
     devDependencies:
       '@types/prismjs':
         specifier: ^1.26.6
@@ -61,17 +61,17 @@ importers:
   packages/pdfanki:
     dependencies:
       '@anthropic-ai/sdk':
-        specifier: ^0.124.0
-        version: 0.124.0
+        specifier: ^0.127.0
+        version: 0.127.0
       '@google/genai':
         specifier: ^2.21.0
-        version: 2.21.0
+        version: 2.23.0
       epub:
         specifier: ^2.1.1
         version: 2.1.1
       openai:
         specifier: ^7.10.0
-        version: 7.10.0(ws@8.21.3)
+        version: 7.20.0(ws@8.21.3)
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
@@ -82,8 +82,8 @@ packages:
     resolution: {integrity: sha512-MFXs1KvapTM6yQzQIxaZGLR9DArSYJJuN6dVeDjcwn4QuRb4ijyBxygMFeSZ4GKpBh6TO5M9kSd4ZSkxh0eazg==}
     engines: {node: '>=24'}
 
-  '@anthropic-ai/sdk@0.124.0':
-    resolution: {integrity: sha512-cN5O8i9UVxHeOQAzj/XjshWXG8KiibJDw9OGpH2Z/eR3n/RBxdoLxDJOcfqAJWvjaMDFfHTBADU04hWRJVkDyA==}
+  '@anthropic-ai/sdk@0.127.0':
+    resolution: {integrity: sha512-OKiVbG9LHCxjn4fBJZJFy/Bz3hqE1RYpwaeSEDNheQnvz0XNKmGT/Lhkz2Sf1a27Ldt3vVv+BkU81I0U/8EpoQ==}
     hasBin: true
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
@@ -251,8 +251,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@google/genai@2.21.0':
-    resolution: {integrity: sha512-+PDtco2/Z0ONdzCGekCoCT+O1VJS9xJQNN4XzQpXG/t3El/SWWMkCWlFRO1KmivOHPa4Q0VjUYu1HBKCZ/v33Q==}
+  '@google/genai@2.23.0':
+    resolution: {integrity: sha512-NFMzktoZ7jJg9AA3vUbWZocnkQP6DSGzL21ORwdVcBWkHli3k7v6B9zy07M4bTiKDAyIWfUh2J/oLYxCu0hNpQ==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
@@ -1122,8 +1122,8 @@ packages:
     resolution: {integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  openai@7.10.0:
-    resolution: {integrity: sha512-sn9t2Kls7O52PwuF9BUTYNu4Gk/r0lXJyrgaNht4TNRlZFb3dJIGO0RciSgjARGCBRtWjySubAQFJttlzUvGQQ==}
+  openai@7.20.0:
+    resolution: {integrity: sha512-5x5ru4cKEvEqHqYZbdIbT57OE7KqmP9YYxZiUKuKng016grOHXqom1vmu34MTPPW30q+lcP9RhxAbaRse+Xlcw==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
@@ -1315,8 +1315,8 @@ packages:
     resolution: {integrity: sha512-rwu/ClNdSMpkSrUb+d6BRsSkLUq1fmfsY6TOpYzTwvwkg1/NRG85KBy3kq++A8LKQwX6lsu+aWad+2khvuXrqw==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=23}
 
-  yargs@18.1.0:
-    resolution: {integrity: sha512-2rAgRKu54VsHkqI0/tYkmluGXHD4KW7yZoycuqDQ15QOTnc2VVfy0nN/1eMhnQLO00A+dwtK20xuCnc1YGeUyg==}
+  yargs@18.2.0:
+    resolution: {integrity: sha512-9OpKOLeaoNFecEp7P6iYbzze/5CqWoH7N3SMs/6y1XF4nMvFMspEGZzJ6uFi9MmQwXhyzqYoSEKO3tvA3Z/o2w==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=23}
 
 snapshots:
@@ -1329,7 +1329,7 @@ snapshots:
       turndown: 7.2.4
       yaml: 2.9.0
 
-  '@anthropic-ai/sdk@0.124.0':
+  '@anthropic-ai/sdk@0.127.0':
     dependencies:
       json-schema-to-ts: 3.1.1
       standardwebhooks: 1.1.1
@@ -1414,7 +1414,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@google/genai@2.21.0':
+  '@google/genai@2.23.0':
     dependencies:
       google-auth-library: 10.9.1
       p-retry: 4.6.2
@@ -2017,7 +2017,7 @@ snapshots:
       fetch-blob: 3.2.0
       formdata-polyfill: 4.0.10
 
-  openai@7.10.0(ws@8.21.3):
+  openai@7.20.0(ws@8.21.3):
     optionalDependencies:
       ws: 8.21.3
 
@@ -2229,7 +2229,7 @@ snapshots:
 
   yargs-parser@22.0.0: {}
 
-  yargs@18.1.0:
+  yargs@18.2.0:
     dependencies:
       cliui: 9.0.1
       escalade: 3.2.0
