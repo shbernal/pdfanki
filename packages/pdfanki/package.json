@@ -53,7 +53,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.124.0",
+    "@anthropic-ai/sdk": "^0.127.0",
     "@google/genai": "^2.21.0",
     "epub": "^2.1.1",
     "openai": "^7.10.0",
