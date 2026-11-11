@@ -30,8 +30,12 @@ updates:
           - patch
     ignore:
       # Sibling packages are released deliberately and in order; bumping them
-      # here would race the coordinated release described in AGENTS.md.
+      # here would race the coordinated release across the anki-md packages.
       - dependency-name: "@shbernal/*"
+      - dependency-name: "@ankimd/*"
+      # Typed against the engines floor on purpose.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
