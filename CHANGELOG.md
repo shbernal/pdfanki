@@ -5,7 +5,10 @@ Notable changes per release. Both published packages — `@shbernal/pdfanki` and
 0.4.0 predate it; see the
 [tags](https://github.com/shbernal/pdfanki/tags) for their history.
 
-## Unreleased
+## 0.6.0
+
+Deck building moves to `@ankimd/core`, `md anki` highlights code and can fetch remote
+images, and the whole codebase type-checks under `strict`.
 
 ### Added
 
@@ -34,12 +37,16 @@ Notable changes per release. Both published packages — `@shbernal/pdfanki` and
   beside the mutable originals, which stay: a deck is built up and edited on purpose,
   and the types now say which side of that line each signature is on.
 
-- **`@ankimd/core` moved from 0.0.4 to 0.0.6.** Two fixes in it reach `md anki`
+- **`@ankimd/core` moved from 0.0.4 to 0.0.7.** Two fixes in it reach `md anki`
   directly: an image written as `](<name>)` or `](name "title")` was never packaged,
   because the reader only recognized `](name)`, and a media file whose name did not stay
   inside the media directory is now refused and reported rather than written. 0.0.5 also
   made a deck's `title` and `titleSource` one discriminated union, which the deck
-  `pdfanki` builds already satisfied.
+  `pdfanki` builds already satisfied. 0.0.7 writes the `.apkg` with SQLite 3.54.1, so
+  its bytes differ from before while its notes, cards and media do not.
+
+- **Provider SDKs refreshed** within their current majors: openai 7.55,
+  `@google/genai` 2.32, `@anthropic-ai/sdk` 0.137.
 
 - **Deck building moved from `@shbernal/mdanki` to `@ankimd/core`.** One package now
   owns Flashcard Markdown for the whole family, and `pdfanki` holds none of it: the
@@ -58,13 +65,6 @@ Notable changes per release. Both published packages — `@shbernal/pdfanki` and
   rather than echoed, so both come out canonical. Previously each cost a model call.
   What still fails the model's output is unchanged: a stray `#`, an empty front, content
   above the first card, a bullet-less answer, an empty bullet, a repeated front.
-
-- **`pdfanki md anki` no longer highlights code or downloads remote images.** Images
-  beside the deck that names them are still packaged. Prism highlighting and remote
-  fetching were `@shbernal/mdanki` defaults, and reproducing them here would put a
-  syntax-highlighting table and a network policy inside a tool whose subject is PDFs.
-  [`ankimd build`](https://www.npmjs.com/package/@ankimd/cli) does all three and is the
-  command to reach for on a hand-written deck.
 
 - **Every source file is type-checked under `strict`.** `tsconfig.base.json` had
   `strict: false` with `strictNullChecks` bolted back on, which left the PDF and EPUB
