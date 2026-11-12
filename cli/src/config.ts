@@ -84,7 +84,7 @@ export const DEFAULT_SETTINGS: Settings = {
     defaultPrompt: DEFAULT_PROMPT_NAME,
     providers: {
       gemini: {
-        defaultModel: "gemini-3-pro-preview",
+        defaultModel: "gemini-3.8-flash",
       },
       anthropic: {
         defaultModel: "claude-sonnet-4-5",

@@ -1,13 +1,11 @@
 version: 2
 
 updates:
-  # pnpm workspace: the root holds the shared toolchain, `cli` and
-  # `packages/*` hold the published dependencies.
+  # pnpm workspace: the root entry covers every workspace package, since it is
+  # the one that owns pnpm-lock.yaml. Listing `cli` or `packages/*` as well opened
+  # a duplicate PR per bump, and that copy left the lockfile untouched.
   - package-ecosystem: npm
-    directories:
-      - /
-      - /cli
-      - /packages/*
+    directory: /
     schedule:
       interval: weekly
       day: monday

@@ -5,6 +5,20 @@ Notable changes per release. Both published packages — `@shbernal/pdfanki` and
 0.4.0 predate it; see the
 [tags](https://github.com/shbernal/pdfanki/tags) for their history.
 
+## Unreleased
+
+### Changed
+
+- **The default Gemini model is now `gemini-3.8-flash`.** The old default,
+  `gemini-3-pro-preview`, has been shut down, so a run that relied on it failed. Its
+  replacement is served on the `v1` Gemini API, which `@google/genai` 3 now targets by
+  default. A `defaultModel` set in your own `settings.json`, or `--model`, still takes
+  precedence: if yours names `gemini-3-pro-preview`, change it.
+
+- **Provider SDKs moved to new majors:** `@google/genai` 3 (requests go to the `v1` API
+  instead of `v1beta`, so a model served only on `v1beta` is no longer reachable) and
+  `@anthropic-ai/sdk` 1 (API version 2026-10-21; nothing pdfanki calls changed).
+
 ## 0.6.0
 
 Deck building moves to `@ankimd/core`, `md anki` highlights code and can fetch remote

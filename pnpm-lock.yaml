@@ -216,11 +216,11 @@ importers:
   packages/pdfanki:
     dependencies:
       '@anthropic-ai/sdk':
-        specifier: ^0.137.0
-        version: 0.137.0
+        specifier: ^1.8.0
+        version: 1.8.0
       '@google/genai':
-        specifier: ^2.32.0
-        version: 2.32.0
+        specifier: ^3.1.0
+        version: 3.1.0
       epub:
         specifier: ^2.1.1
         version: 2.1.1
@@ -237,8 +237,8 @@ packages:
     resolution: {integrity: sha512-8V/3stJ+DVvwa+7uvupFIRjd9UvzSlW1JlSCdI6x/hXgz9INjV2lNI7LWssHSd0dJRc+ac3epl99BwaATQEkrg==}
     engines: {node: '>=24'}
 
-  '@anthropic-ai/sdk@0.137.0':
-    resolution: {integrity: sha512-YpEnbPz8kWF1BWthwUCnRhci7OvDLSUO8NFKoevoPkjNkK9CJeibZITgxr9vhqOP8Le61e5tNDHFTxw1dc6Png==}
+  '@anthropic-ai/sdk@1.8.0':
+    resolution: {integrity: sha512-yDOArk2+Qpd/djEKmZjrv7JZ+pn5iBHARJ9PAdvfhGf4H5wNqTgY/2K0/yDKdQdm8G8hrNQchMlBAHpPK7yBfg==}
     hasBin: true
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
@@ -406,9 +406,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@google/genai@2.32.0':
-    resolution: {integrity: sha512-60c79uXpR0a47bmGqDxbXEBuQUalNmwo5mx5kqb91jIW4FoqpsLSt86DeVhRhtH5+s/16Wqxt3sXzFQn2U1OHQ==}
-    engines: {node: '>=20.0.0'}
+  '@google/genai@3.1.0':
+    resolution: {integrity: sha512-fKLeRkpULBDox+b5wmm4UN6PsUw1v5kP+8vJF1aq/wSpiI2sV4AuDtL0uZqu91AH4lc25fZ8sDa6cyCQOFyaXg==}
+    engines: {node: '>=22.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
     peerDependenciesMeta:
@@ -1367,7 +1367,7 @@ snapshots:
       turndown: 7.2.5
       yaml: 2.9.1
 
-  '@anthropic-ai/sdk@0.137.0':
+  '@anthropic-ai/sdk@1.8.0':
     dependencies:
       '@opentelemetry/api': 1.10.0
       json-schema-to-ts: 3.1.1
@@ -1453,7 +1453,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@google/genai@2.32.0':
+  '@google/genai@3.1.0':
     dependencies:
       google-auth-library: 10.9.1
       p-retry: 4.6.2
