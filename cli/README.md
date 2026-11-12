@@ -38,6 +38,9 @@ Default `settings.json` shape:
       "gemini": {
         "defaultModel": "gemini-3.8-flash"
       },
+      "anthropic": {
+        "defaultModel": "claude-sonnet-5-5"
+      },
       "codex": {
         "defaultModel": "gpt-5.4",
         "reasoningEffort": "medium"

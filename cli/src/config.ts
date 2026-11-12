@@ -87,7 +87,7 @@ export const DEFAULT_SETTINGS: Settings = {
         defaultModel: "gemini-3.8-flash",
       },
       anthropic: {
-        defaultModel: "claude-sonnet-4-5",
+        defaultModel: "claude-sonnet-5-5",
       },
       openai: {
         defaultModel: "gpt-5.2-2025-12-11",
