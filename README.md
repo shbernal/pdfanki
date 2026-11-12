@@ -68,7 +68,7 @@ Default `settings.json` shape:
     "defaultPrompt": "default",
     "providers": {
       "gemini": {
-        "defaultModel": "gemini-3-pro-preview"
+        "defaultModel": "gemini-3.8-flash"
       },
       "codex": {
         "defaultModel": "gpt-5.4",
