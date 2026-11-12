@@ -5,7 +5,10 @@ Notable changes per release. Both published packages — `@shbernal/pdfanki` and
 0.4.0 predate it; see the
 [tags](https://github.com/shbernal/pdfanki/tags) for their history.
 
-## Unreleased
+## 0.7.2
+
+Provider calls retry transient errors, such as the 503 "high demand" that
+`gemini-3.8-flash` often returns.
 
 ### Added
 
