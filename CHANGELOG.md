@@ -5,6 +5,18 @@ Notable changes per release. Both published packages — `@shbernal/pdfanki` and
 0.4.0 predate it; see the
 [tags](https://github.com/shbernal/pdfanki/tags) for their history.
 
+## Unreleased
+
+### Added
+
+- **Provider calls retry transient errors.** A 429, 500, 502, 503 or 504, or a
+  connection reset or timeout, is retried up to 5 tries in all, with exponential
+  backoff and jitter, waiting as long as the server asks when it says. Each retry
+  prints one line on stderr. Other errors, such as a bad key or a bad request, fail
+  at once as before. Gemini, whose `gemini-3.8-flash` often answers 503 "high demand",
+  goes through pdfanki's own retry; Anthropic and the OpenAI-compatible providers use
+  their SDK's (`maxRetries`, up from the SDK default of 2 retries to 4).
+
 ## 0.7.1
 
 The default Anthropic model moves to `claude-sonnet-5-5` ahead of `claude-sonnet-4-5`'s

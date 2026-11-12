@@ -1,6 +1,7 @@
 import { callCodexProvider, type CodexReasoningEffort } from "./codexProvider.js";
 import { describeError } from "./describeError.js";
 import { isList } from "./isList.js";
+import { DEFAULT_RETRY_ATTEMPTS, withRetry } from "./retry.js";
 import type { ReadonlyBookJson } from "./types/flashcards.js";
 
 export type SupportedProvider =
@@ -27,6 +28,37 @@ const GEMINI_TIMEOUT_MS = 180_000;
 const MS_PER_SECOND = 1000;
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+/** The Anthropic and OpenAI SDKs count retries, not tries; same budget as Gemini. */
+const SDK_MAX_RETRIES = DEFAULT_RETRY_ATTEMPTS - 1;
+
+/**
+ * The Anthropic and OpenAI SDKs retry on their own (429, 5xx, connection errors,
+ * honouring `Retry-After`) and announce each retry at `info`, in a line carrying
+ * request ids and the URL. Shorten those to one line on stderr, drop the rest of
+ * `info`, and keep `warn`/`error` where the SDK's default logger sends them.
+ */
+export function retryLogger(label: string, write = (line: string) => process.stderr.write(line)) {
+  return {
+    error: (...args: readonly unknown[]): void => {
+      console.error(...args);
+    },
+    warn: (...args: readonly unknown[]): void => {
+      console.warn(...args);
+    },
+    debug: (): void => undefined,
+    info: (message: string): void => {
+      const remaining = /retrying, (\d+) attempts? remaining/.exec(message);
+      if (!remaining) {
+        return;
+      }
+      const reason =
+        /with status (\d+)/.exec(message)?.[1] ??
+        /connection (timed out|failed)/.exec(message)?.[0] ??
+        "error";
+      write(`${label}: ${reason}, retrying (${remaining[1]} left)\n`);
+    },
+  };
+}
 
 export function bookJsonToPlainText(book: ReadonlyBookJson): string {
   const parts: string[] = [];
@@ -80,10 +112,14 @@ async function callGemini(options: GenerateFlashcardsOptions): Promise<string> {
       ...(apiKey === undefined ? {} : { apiKey }),
       httpOptions: { timeout: GEMINI_TIMEOUT_MS },
     });
-    const response = await client.models.generateContent({
-      model,
-      contents: `${prompt}\n\n${content}`,
-    });
+    const response = await withRetry(
+      () =>
+        client.models.generateContent({
+          model,
+          contents: `${prompt}\n\n${content}`,
+        }),
+      { label: "Gemini" },
+    );
     const { text } = response;
     if (!text || typeof text !== "string") {
       throw new Error("Gemini returned no text content.");
@@ -108,7 +144,12 @@ async function callGemini(options: GenerateFlashcardsOptions): Promise<string> {
 async function callAnthropic(options: GenerateFlashcardsOptions): Promise<string> {
   const { prompt, content, apiKey, model } = options;
   const { Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({
+    apiKey,
+    maxRetries: SDK_MAX_RETRIES,
+    logLevel: "info",
+    logger: retryLogger("Anthropic"),
+  });
   const response = await client.messages.create({
     model,
     max_tokens: 4096,
@@ -190,6 +231,9 @@ async function callOpenAICompatible(options: OpenAICompatibleOptions): Promise<s
   const OpenAI = openaiModule.default;
   const client = new OpenAI({
     apiKey,
+    maxRetries: SDK_MAX_RETRIES,
+    logLevel: "info",
+    logger: retryLogger(providerName),
     ...(baseURL ? { baseURL } : {}),
     ...(defaultHeaders ? { defaultHeaders } : {}),
   });
