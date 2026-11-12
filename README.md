@@ -20,7 +20,7 @@ Project layout
 Requirements
 
 - Node.js >= 24
-- Provider API key exported in your shell for API-backed providers: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`
+- Provider API key in the environment for API-backed providers: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`. pdfanki reads them from the process environment only and does not load a `.env` file. See [API keys](#api-keys) for the fnox setup
 - Optional experimental Codex provider: locally installed official `codex` CLI with an existing login; pdfanki calls `codex exec` and does not read Codex auth files directly
 
 Install (CLI)
@@ -28,6 +28,18 @@ Install (CLI)
 ```bash
 pnpm i -g @shbernal/pdfanki-cli
 ```
+
+API keys
+
+Keep the provider keys in [fnox](https://github.com/jdx/fnox) (installable with mise) and run pdfanki under `fnox exec`, which puts them in the command's environment for that run only. The repo has no `fnox.toml`: a project file can only declare secrets with their own encrypted values, so the keys live in your global fnox config (`~/.config/fnox/config.toml`), where every checkout and every installed `pdfanki` can reach them.
+
+```bash
+fnox set --global GEMINI_API_KEY      # prompts for the value; repeat for ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, ...
+fnox exec -- pdfanki pdf anki file.pdf --deck-title "Title"
+fnox exec -- pnpm pdfanki-local -- json md book.json --provider anthropic
+```
+
+Add `--only GEMINI_API_KEY` (repeatable) to pass just the key the run needs. Do not put keys in a `.env` file: nothing in this repo reads it.
 
 Local repo workflows
 

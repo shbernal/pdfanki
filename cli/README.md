@@ -12,7 +12,7 @@ Create Anki decks from PDF/EPUB files using NLP with LLMs.
 ### Requirements
 
 - Node >=24
-- Provider API keys via environment variables for API-backed providers: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`
+- Provider API keys via environment variables for API-backed providers: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY`. pdfanki does not load a `.env` file. One way to keep them out of your shell profile is [fnox](https://github.com/jdx/fnox): store each with `fnox set --global GEMINI_API_KEY` and run `fnox exec -- pdfanki ...`
 - Optional experimental Codex provider: locally installed official `codex` CLI with an existing login; pdfanki calls `codex exec` and does not read Codex auth files directly
 
 ## Config (XDG)
