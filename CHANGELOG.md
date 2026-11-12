@@ -5,7 +5,10 @@ Notable changes per release. Both published packages — `@shbernal/pdfanki` and
 0.4.0 predate it; see the
 [tags](https://github.com/shbernal/pdfanki/tags) for their history.
 
-## Unreleased
+## 0.7.1
+
+The default Anthropic model moves to `claude-sonnet-5-5` ahead of `claude-sonnet-4-5`'s
+end of life on 2026-11-30.
 
 ### Changed
 
