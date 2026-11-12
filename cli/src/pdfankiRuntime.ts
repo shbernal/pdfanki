@@ -30,8 +30,6 @@ export type {
    stays one an importer can resolve. */
 export const DEFAULT_EPUB_TITLE_FILTERS: ServerModule["DEFAULT_EPUB_TITLE_FILTERS"] =
   serverModule.DEFAULT_EPUB_TITLE_FILTERS;
-export const bookJsonToPlainText: ServerModule["bookJsonToPlainText"] =
-  serverModule.bookJsonToPlainText;
 export const convertFileFromPath: ServerModule["convertFileFromPath"] =
   serverModule.convertFileFromPath;
 export const generateFlashcards: ServerModule["generateFlashcards"] =

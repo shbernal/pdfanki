@@ -7,8 +7,9 @@ import { parseSectionCards } from "../dist/flashcardPolicy.js";
  * pdfanki's producer policy, which is what is left once `@ankimd/core` owns the format.
  *
  * The grammar is tested in that package, against the spec's conformance corpus. What is
- * tested here is the set §5.5 hands to the producer, plus the two departures pdfanki
- * chooses to normalize rather than retry the model over.
+ * tested here is the set §5.5 hands to the producer. Where a conformance case already
+ * pins one of these down (a bullet-less card, a duplicate front, the two whitespace
+ * departures pdfanki normalizes), `conformance.test.mjs` is where it lives.
  */
 
 const parseError = (markdown) => {
@@ -68,10 +69,6 @@ test("parseSectionCards rejects markdown with no cards", () => {
   assert.match(message, /Content found before the first card front/);
 });
 
-test("parseSectionCards rejects a card with no bullets", () => {
-  assert.match(parseError("## Lonely"), /Card "Lonely" is missing bullet items/);
-});
-
 test("parseSectionCards rejects a body with no bullet at the top level", () => {
   assert.match(parseError("## Front\n\nJust a paragraph."), /Card "Front" is missing bullet items/);
 });
@@ -112,41 +109,9 @@ test("parseSectionCards rejects a # heading", () => {
   assert.match(message, /stray-h1/);
 });
 
-// Duplicate fronts are valid input that a consumer must keep. Refusing to *write* them
-// is producer policy: two identical fronts are the model repeating itself, and a
-// reviewer cannot tell the two cards apart.
-test("parseSectionCards rejects a duplicate card front", () => {
-  const message = parseError(
-    ["## bank", "", "- the side of a river", "", "## bank", "", "- a financial institution"].join(
-      "\n",
-    ),
-  );
-
-  assert.match(message, /Duplicate card front "bank"/);
-});
-
 test("parseSectionCards reports every issue at once", () => {
   const message = parseError(["## First", "", "## Second"].join("\n"));
 
   assert.match(message, /1\. Card "First" is missing bullet items/);
   assert.match(message, /2\. Card "Second" is missing bullet items/);
-});
-
-/*
- * Both of these are valid but not canonical, and both are fixed by the renderer rather
- * than by asking the model again. The deck pdfanki writes is still canonical, which is
- * what the format obliges a producer to emit.
- */
-
-test("parseSectionCards accepts a missing blank line after the heading", () => {
-  const cards = parseSectionCards("## First\n- a");
-
-  assert.equal(cards[0].back, "- a");
-});
-
-test("parseSectionCards accepts a separator written tight against its neighbours", () => {
-  const cards = parseSectionCards(["## Front", "Ask.", "***", "- Answer"].join("\n"));
-
-  assert.equal(cards[0].frontBody, "Ask.");
-  assert.equal(cards[0].back, "- Answer");
 });

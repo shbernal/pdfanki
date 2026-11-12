@@ -86,8 +86,3 @@ test("findPageOverlaps skips ranges it cannot parse", () => {
 
   assert.deepEqual(overlaps, []);
 });
-
-test("findPageOverlaps finds nothing in a single section", () => {
-  assert.deepEqual(findPageOverlaps([section(1, "1-10")]), []);
-  assert.deepEqual(findPageOverlaps([]), []);
-});

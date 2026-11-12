@@ -55,8 +55,6 @@ import type { Logger } from "./ui/logger.js";
  * only by which source it reads and which artifact it writes.
  */
 
-const DEFAULT_PREVIEW_CHARS = 120;
-
 /* Not a flag. `ankimd build` exposes `--code-theme`; here every Anki output takes
    the same default, and a second spelling of it is its own decision. */
 const CODE_THEME = "dark";
@@ -522,7 +520,7 @@ async function runGenerationWorkflow(
       ? deckTitleArg
       : parse(inputPath).name || output.outputBaseName;
 
-  const sections = structured.data.content ?? [];
+  const sections = structured.data.content;
   if (sections.length === 0) {
     throw new Error("No content sections found to generate flashcards.");
   }
@@ -613,7 +611,7 @@ async function executeWorkflow(
       epub: {
         ...settings.epub,
         preview: resolvePreview(previewFlagMode, source.previewChars, settings.epub.preview),
-        previewChars: source.previewChars ?? settings.epub.previewChars ?? DEFAULT_PREVIEW_CHARS,
+        previewChars: source.previewChars ?? settings.epub.previewChars,
       },
     },
     source,

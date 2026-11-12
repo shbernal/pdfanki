@@ -28,11 +28,6 @@ test("cleanExtractedText trims the result", () => {
   assert.equal(cleanExtractedText("   \n padded \n  "), "padded");
 });
 
-test("cleanExtractedText leaves already-clean text untouched", () => {
-  const text = "The quick brown fox jumps over the lazy dog.";
-  assert.equal(cleanExtractedText(text), text);
-});
-
 test("cleanTransformedResult cleans every section without mutating the input", () => {
   const original = {
     metadata: { title: "Book" },

@@ -65,33 +65,11 @@ test("deleteSection rejects malformed data and unknown indexes", () => {
   assert.throws(() => deleteSection(makeBook(), 99), /Section with index 99 not found/);
 });
 
-test("undoDelete restores the section at its original position", () => {
-  const book = makeBook();
-  const { updatedJsonData, deletedSection } = deleteSection(book, 2);
-
-  const restored = undoDelete(updatedJsonData, deletedSection);
-
-  assert.deepEqual(
-    restored.content.map((section) => [section.index, section.title]),
-    [
-      [1, "One"],
-      [2, "Two"],
-      [3, "Three"],
-    ],
-  );
-});
-
-test("undoDelete rolls the filtered counter back", () => {
-  const { updatedJsonData, deletedSection } = deleteSection(makeBook(), 2);
-  const restored = undoDelete(updatedJsonData, deletedSection);
-
-  assert.equal(restored.metadata.extractedSections, 3);
-  assert.equal(restored.metadata.filteredSections, 0);
-});
-
+// Deleting from the middle: undo has to put the section back between its
+// neighbours, renumber all three, and roll both section counters back.
 test("delete then undo round-trips back to the original book", () => {
   const book = makeBook();
-  const { updatedJsonData, deletedSection } = deleteSection(book, 1);
+  const { updatedJsonData, deletedSection } = deleteSection(book, 2);
 
   assert.deepEqual(undoDelete(updatedJsonData, deletedSection), book);
 });

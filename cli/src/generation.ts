@@ -15,10 +15,7 @@ import {
 import { providerRequiresApiKey, readProviderApiKey, type ApiKeyLookup } from "./env.js";
 import { describeError } from "./errors.js";
 import { parseSectionCards } from "./flashcardPolicy.js";
-import {
-  generateFlashcards as generateFlashcardsFromServer,
-  type ReadonlyContentSection,
-} from "./pdfankiRuntime.js";
+import { generateFlashcards, type ReadonlyContentSection } from "./pdfankiRuntime.js";
 import { runWithProgressHeartbeat, type CliUi } from "./ui/cliUi.js";
 import {
   colorizeText,
@@ -79,10 +76,6 @@ interface GenerateFlashcardsRequest {
     readonly reasoningEffort?: CodexReasoningEffort;
     readonly profile?: string;
   };
-}
-
-async function generateFlashcards(options: GenerateFlashcardsRequest): Promise<string> {
-  return generateFlashcardsFromServer(options);
 }
 
 /**
@@ -159,7 +152,7 @@ export function resolveGenerationPlan(
   }
 
   const hint = PROVIDER_MODEL_HINTS[provider];
-  if (model && hint && !hint.test(model)) {
+  if (!hint.test(model)) {
     logger.warn(`Model "${model}" may not belong to provider "${provider}".`);
   }
 

@@ -255,8 +255,7 @@ export function parseEpubWithEpubLib(
 
         try {
           // Get chapter content
-          const chapterText = await getChapterText(epub, chapter.id);
-          const cleanText = cleanHtmlText(chapterText);
+          const cleanText = cleanHtmlText(await epub.getChapter(chapter.id));
           const sectionCharCount = cleanText.length;
           const filterResult = shouldFilterContent(
             chapterNumber,
@@ -359,16 +358,10 @@ export function transformEpubResult(
   const titleMatchers = buildTitleMatchers(titleFilters);
 
   // Process all chapters so out-of-range sections are counted as filtered.
-  for (let i = 0; i < chapters.length; i++) {
-    const chapter = chapters[i];
+  for (const [i, chapter] of chapters.entries()) {
     const chapterNumber = i + 1;
 
-    if (!chapter) {
-      console.warn(`Chapter at index ${i} not found`);
-      continue;
-    }
-
-    // Check if content should be filtered
+    // Empty text is one of the reasons this filters on, so a kept chapter has text.
     const filterResult = shouldFilterContent(
       chapterNumber,
       chapter.title,
@@ -388,22 +381,13 @@ export function transformEpubResult(
       continue;
     }
 
-    // Only add chapter if it has meaningful content
-    if (chapter.text && chapter.text.trim().length > 0) {
-      content.push({
-        index: contentNumber,
-        title: chapter.title,
-        text: chapter.text,
-        originalChapterIndex: chapterNumber,
-      });
-      contentNumber++;
-    } else {
-      filteredOut.push({
-        originalIndex: chapterNumber,
-        title: chapter.title,
-        reason: "empty content",
-      });
-    }
+    content.push({
+      index: contentNumber,
+      title: chapter.title,
+      text: chapter.text,
+      originalChapterIndex: chapterNumber,
+    });
+    contentNumber++;
   }
 
   // Build metadata to match PDF format
@@ -431,13 +415,6 @@ export function transformEpubResult(
     metadata: transformedMetadata,
     content,
   };
-}
-
-/**
- * Helper function to get chapter text (promisified)
- */
-function getChapterText(epub: EPub, chapterId: string): Promise<string> {
-  return epub.getChapter(chapterId);
 }
 
 function buildPreviewText(text: string, previewChars: number): string {
@@ -484,15 +461,10 @@ function cleanHtmlText(htmlContent: string): string {
 /**
  * Function to check if content should be filtered out
  */
-function buildTitleMatchers(filters: readonly EpubTitleFilter[] | undefined): TitleMatcher[] {
-  const rules = filters ?? [];
+function buildTitleMatchers(filters: readonly EpubTitleFilter[]): TitleMatcher[] {
   const matchers: TitleMatcher[] = [];
 
-  for (const rule of rules) {
-    if (!rule) {
-      continue;
-    }
-
+  for (const rule of filters) {
     if (rule.type === "string" && typeof rule.value === "string") {
       const normalized = rule.value.trim().toLowerCase();
       if (!normalized) {
@@ -542,14 +514,10 @@ function shouldFilterContent(
   title: string | undefined,
   text: string | undefined,
   titleMatchers: readonly TitleMatcher[],
-  minChars?: number,
-  selectedRange?: ChapterRange,
+  minChars: number | undefined,
+  selectedRange: ChapterRange,
   excludedChapters?: ReadonlySet<number>,
 ): { shouldFilter: boolean; reason?: string } {
-  if (!selectedRange) {
-    throw new Error("selectedRange is required for EPUB filtering");
-  }
-
   const selectionReason = getSelectionFilterReason(chapterNumber, selectedRange, excludedChapters);
   if (selectionReason) {
     return { shouldFilter: true, reason: selectionReason };
