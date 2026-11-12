@@ -236,7 +236,7 @@ export function transformPdfParseResult(
   let content: PdfSection[] = [];
   let processingMethod = "pdf-parse";
 
-  if (index && Array.isArray(index)) {
+  if (index) {
     content = processWithIndexFromPageText(pageTexts, index);
     processingMethod = "pdf-parse-with-index";
   } else {

@@ -18,17 +18,10 @@ export function cleanExtractedText(text: unknown): string {
     .replaceAll("\0", "") // Remove null characters
     .replaceAll("\r", ""); // Remove carriage returns
 
-  // 2. Handle newline sequences
-  // First replace double newlines with single space
-  cleanedText = cleanedText.replaceAll("\n\n", " ");
-
-  // Then replace remaining single newlines with space
-  cleanedText = cleanedText.replaceAll("\n", " ");
-
-  // 3. Clean up multiple consecutive spaces
+  // 2. Collapse every run of whitespace, newlines included, to one space
   cleanedText = cleanedText.replaceAll(/\s+/g, " ");
 
-  // 4. Trim whitespace from start and end
+  // 3. Trim whitespace from start and end
   cleanedText = cleanedText.trim();
 
   return cleanedText;

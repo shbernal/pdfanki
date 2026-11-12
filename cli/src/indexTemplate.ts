@@ -60,21 +60,16 @@ export function resolveIndexTemplatePath(
     return join(process.cwd(), `${defaultBaseName}.json`);
   }
 
-  const normalizedTarget = normalizePathArg(target);
-  if (!normalizedTarget) {
-    return join(process.cwd(), `${defaultBaseName}.json`);
-  }
-
-  const parsed = parse(normalizedTarget);
+  const parsed = parse(target);
   if (!parsed.ext) {
-    return join(normalizedTarget, "index.json");
+    return join(target, "index.json");
   }
 
   if (parsed.ext.toLowerCase() !== ".json") {
     throw new Error("Index template output must end with .json");
   }
 
-  return normalizedTarget;
+  return target;
 }
 
 export async function handleIndexTemplate(

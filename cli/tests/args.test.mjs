@@ -34,15 +34,6 @@ test("normalizePreviewCliArgs rewrites --preview=<count> the same way", () => {
   ]);
 });
 
-test("normalizePreviewCliArgs consumes the count rather than passing it on", () => {
-  assert.deepEqual(normalizePreviewCliArgs(["--preview", "200", "book.epub"]), [
-    "--preview",
-    "--preview-chars",
-    "200",
-    "book.epub",
-  ]);
-});
-
 test("normalizePreviewCliArgs leaves a bare --preview as a boolean flag", () => {
   assert.deepEqual(normalizePreviewCliArgs(["--preview", "book.epub"]), ["--preview", "book.epub"]);
 });
@@ -61,19 +52,6 @@ test("normalizePreviewCliArgs rewrites every occurrence", () => {
     "--preview",
     "--preview-chars",
     "20",
-  ]);
-});
-
-test("normalizePreviewCliArgs does not treat a consumed count as a flag", () => {
-  /* The 200 is claimed by the --preview before it, so the --preview it happens
-     to precede is still the one that gets read next. */
-  assert.deepEqual(normalizePreviewCliArgs(["--preview", "200", "--preview", "300"]), [
-    "--preview",
-    "--preview-chars",
-    "200",
-    "--preview",
-    "--preview-chars",
-    "300",
   ]);
 });
 

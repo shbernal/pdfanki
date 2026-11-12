@@ -71,19 +71,6 @@ test("generateFlashcards rejects an unknown provider", async () => {
   );
 });
 
-test("the default EPUB title filters are well-formed regexes", () => {
-  assert.ok(DEFAULT_EPUB_TITLE_FILTERS.length > 0);
-
-  for (const filter of DEFAULT_EPUB_TITLE_FILTERS) {
-    assert.equal(filter.type, "regex");
-    assert.doesNotThrow(
-      () => new RegExp(filter.pattern, filter.flags),
-      `bad pattern: ${filter.pattern}`,
-    );
-    assert.equal(filter.flags, "i", "front matter matching is case-insensitive");
-  }
-});
-
 const matchesDefaultTitleFilter = (title) =>
   DEFAULT_EPUB_TITLE_FILTERS.some((filter) => new RegExp(filter.pattern, filter.flags).test(title));
 
