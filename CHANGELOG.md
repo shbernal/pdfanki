@@ -5,6 +5,15 @@ Notable changes per release. Both published packages — `@shbernal/pdfanki` and
 0.4.0 predate it; see the
 [tags](https://github.com/shbernal/pdfanki/tags) for their history.
 
+## Unreleased
+
+### Changed
+
+- **The default Anthropic model is now `claude-sonnet-5-5`.** The old default,
+  `claude-sonnet-4-5`, reaches end of life on 2026-11-30. A `defaultModel` in your own
+  `settings.json`, or `--model`, still takes precedence: if yours names
+  `claude-sonnet-4-5`, change it.
+
 ## 0.7.0
 
 The default Gemini model moves to `gemini-3.8-flash`, served on the `v1` API that
