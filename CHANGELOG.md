@@ -5,7 +5,10 @@ Notable changes per release. Both published packages — `@shbernal/pdfanki` and
 0.4.0 predate it; see the
 [tags](https://github.com/shbernal/pdfanki/tags) for their history.
 
-## Unreleased
+## 0.7.0
+
+The default Gemini model moves to `gemini-3.8-flash`, served on the `v1` API that
+`@google/genai` 3 now targets, and both provider SDKs take their new majors.
 
 ### Changed
 

@@ -1,6 +1,6 @@
 {
   "name": "@shbernal/pdfanki",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Create Anki decks from PDF and EPUB files using NLP with LLMs.",
   "keywords": [
     "anki",
