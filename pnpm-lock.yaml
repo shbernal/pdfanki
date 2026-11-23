@@ -220,13 +220,13 @@ importers:
         version: 1.8.0
       '@google/genai':
         specifier: ^3.1.0
-        version: 3.1.0
+        version: 3.3.0
       epub:
         specifier: ^2.1.1
         version: 2.1.1
       openai:
         specifier: ^7.55.0
-        version: 7.55.0(google-auth-library@10.9.1)(ws@8.22.0)
+        version: 7.57.0(google-auth-library@10.9.1)(ws@8.22.0)
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
@@ -406,8 +406,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@google/genai@3.1.0':
-    resolution: {integrity: sha512-fKLeRkpULBDox+b5wmm4UN6PsUw1v5kP+8vJF1aq/wSpiI2sV4AuDtL0uZqu91AH4lc25fZ8sDa6cyCQOFyaXg==}
+  '@google/genai@3.3.0':
+    resolution: {integrity: sha512-XLjXedj0X8UrULZz1GnlTMSQxBDFdr+NCKZkOBaSVVYqmK30C6FCnKW31Ppn0ItO9DpNspCHFui257kPNpumKQ==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
@@ -1151,8 +1151,8 @@ packages:
     resolution: {integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  openai@7.55.0:
-    resolution: {integrity: sha512-0r4snVSRN46m4wL2vXCW5Xw6CKGPbdNI8t79KZOpe8GKKPmhL8peDXN8YOY/2ipsOVWSfsP/vgkLjTmWB+kMug==}
+  openai@7.57.0:
+    resolution: {integrity: sha512-RbmrdE5NdfW6nGq/FaCJ3KFCZpotoExPzruQUSMCTw/ouUFO08vpvVdSmgmPxQMFAiv9EXZCEXvcWYU+n6NzsQ==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
@@ -1453,7 +1453,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@google/genai@3.1.0':
+  '@google/genai@3.3.0':
     dependencies:
       google-auth-library: 10.9.1
       p-retry: 4.6.2
@@ -1969,7 +1969,7 @@ snapshots:
       fetch-blob: 3.2.0
       formdata-polyfill: 4.0.10
 
-  openai@7.55.0(google-auth-library@10.9.1)(ws@8.22.0):
+  openai@7.57.0(google-auth-library@10.9.1)(ws@8.22.0):
     optionalDependencies:
       google-auth-library: 10.9.1
       ws: 8.22.0
